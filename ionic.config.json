@@ -1,0 +1,7 @@
+{
+  "name": "punchApp",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
