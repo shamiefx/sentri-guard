@@ -12,31 +12,7 @@
     <ion-card-header>
       <ion-card-title>{{ punchedIn ? 'Currently Punched In' : 'Ready to Punch In' }}</ion-card-title>
     </ion-card-header>
-    <ion-card *ngIf="todaySessions().length">
-      <ion-card-header>
-        <ion-card-title>Today's Sessions</ion-card-title>
-        <ion-card-subtitle>All punch intervals</ion-card-subtitle>
-      </ion-card-header>
-      <ion-card-content>
-        <ion-list lines="none">
-          <ion-item *ngFor="let s of todaySessions(); let i = index">
-            <ion-label class="ion-text-wrap">
-              <h3>Session {{ i + 1 }}</h3>
-              <p>
-                In: {{ s.punchIn?.toDate ? (s.punchIn.toDate() | date:'shortTime') : (s.punchIn | date:'shortTime') }}
-                &nbsp;–&nbsp;
-                Out: 
-                <ng-container *ngIf="s.punchOut; else activeTpl">
-                  {{ s.punchOut?.toDate ? (s.punchOut.toDate() | date:'shortTime') : (s.punchOut | date:'shortTime') }}
-                </ng-container>
-                <ng-template #activeTpl><strong>Active</strong></ng-template>
-              </p>
-              <p>Duration: {{ formatMs(s.durationMs) }}</p>
-            </ion-label>
-          </ion-item>
-        </ion-list>
-      </ion-card-content>
-    </ion-card>
+    
     <ion-card-content>
       <div *ngIf="punchedIn && elapsedDisplay()" class="elapsed">
         <ion-text color="medium">Elapsed: {{ elapsedDisplay() }}</ion-text>
@@ -58,22 +34,9 @@
       <ion-card-title>Today</ion-card-title>
     </ion-card-header>
     <ion-card-content>
-      <ion-text>Total Worked: {{ formatMs(todayTotalMs()) }}</ion-text>
-    </ion-card-content>
-  </ion-card>
-
-  <ion-card>
-    <ion-card-header>
-      <ion-card-title>Recent Punches</ion-card-title>
-    </ion-card-header>
-    <ion-card-content>
-      <div *ngIf="history().length === 0">No history.</div>
-      <div *ngFor="let h of history(); let i=index" class="history-item">
-        <ion-text>
-          <strong>{{ h.punchIn ? (h.punchIn | date:'shortTime') : '?' }}</strong>
-          → {{ h.punchOut ? (h.punchOut | date:'shortTime') : '—' }}
-          <span *ngIf="h.durationMs"> ({{ formatMs(h.durationMs) }})</span>
-        </ion-text>
+  <ion-text>Total Worked: {{ formatHm(companyWorkedTodayMs()) }} ({{ (companyWorkedTodayMs()/3600000) | number:'1.2-2' }} hrs)</ion-text>
+      <div *ngIf="punchedIn && activeStartTime()" style="margin-top:6px;">
+        <ion-text color="success">Active since {{ activeStartTime() }} ({{ elapsedDisplay() }})</ion-text>
       </div>
     </ion-card-content>
   </ion-card>
@@ -95,9 +58,12 @@
               <ion-badge *ngIf="r.active" color="success" style="margin-left:6px">Active</ion-badge>
             </h3>
             <p>
-              In: {{ r.punchIn | date:'shortTime' }}
+              In: {{ r.punchIn?.toDate ? (r.punchIn.toDate() | date:'shortTime') : (r.punchIn | date:'shortTime') }}
               &nbsp;–&nbsp;
-              Out: <ng-container *ngIf="r.punchOut; else activeOut">{{ r.punchOut | date:'shortTime' }}</ng-container>
+              Out:
+              <ng-container *ngIf="r.punchOut; else activeOut">
+                {{ r.punchOut?.toDate ? (r.punchOut.toDate() | date:'shortTime') : (r.punchOut | date:'shortTime') }}
+              </ng-container>
               <ng-template #activeOut><strong>—</strong></ng-template>
             </p>
             <p>Duration: {{ formatMs(r.durationMs) }}</p>

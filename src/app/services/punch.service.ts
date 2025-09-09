@@ -493,4 +493,46 @@ export class PunchService {
       );
     });
   }
+
+  /** Fetch punch sessions for a given month (UTC month boundaries). */
+  async getMonthSessions(year: number, monthIndex: number): Promise<(PunchRecord & { id:string; durationMs:number })[]> {
+    const user = this.auth.currentUser; if (!user) return [];
+    const start = new Date(Date.UTC(year, monthIndex, 1, 0,0,0,0));
+    const end = new Date(Date.UTC(year, monthIndex+1, 1, 0,0,0,0));
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+    try {
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef,
+        where('userId','==', user.uid),
+        where('punchIn','>=', startISO),
+        where('punchIn','<', endISO),
+        orderBy('punchIn','asc')
+      );
+      const snap = await getDocs(qRef);
+      const list: (PunchRecord & { id:string; durationMs:number })[] = [];
+      snap.forEach(d => {
+        const data: any = d.data();
+        const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
+        list.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
+      });
+      return list;
+    } catch {
+      // Fallback broad query limited then client filter
+      try {
+        const colRef = collection(this.firestore, 'punches');
+        const broad = await getDocs(query(colRef, where('userId','==', user.uid), limit(2000)));
+        const arr: (PunchRecord & { id:string; durationMs:number })[] = [];
+        broad.forEach(d => {
+          const data: any = d.data();
+          if (!data.punchIn) return;
+          if (data.punchIn < startISO || data.punchIn >= endISO) return;
+          const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
+          arr.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
+        });
+        arr.sort((a,b)=> (a.punchIn||'').localeCompare(b.punchIn||''));
+        return arr;
+      } catch { return []; }
+    }
+  }
 }

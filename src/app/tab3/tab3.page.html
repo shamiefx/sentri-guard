@@ -1,17 +1,71 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>
-      Tab 3
-    </ion-title>
+    <ion-title>Monthly Sessions</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="togglePrev()" fill="clear" size="small">
+        {{ showPrev() ? 'Current Month' : 'Last Month' }}
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Tab 3</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content [fullscreen]="true" class="ion-padding">
+  @if (loading()) {
+    <div class="center"><ion-spinner name="crescent"></ion-spinner></div>
+  }
+  @if (error()) {
+    <ion-text color="danger">{{ error() }}</ion-text>
+  }
 
-  <app-explore-container name="Tab 3 page"></app-explore-container>
+  @if (!showPrev()) {
+    <h2 class="month-label">{{ currentMonthLabel() }}</h2>
+    @if (currentMonthSessions().length > 0) {
+      <div class="grouped">
+        <div *ngFor="let g of currentGrouped()" class="day-group" style="margin-bottom:12px;">
+          <h4 style="margin:0;">{{ g.dateDisplay }} • {{ (g.totalMs/3600000) | number:'1.2-2' }} hrs ({{ formatMs(g.totalMs) }})</h4>
+        </div>
+      </div>
+      <div class="summary">
+        <ion-text>Total Closed Duration: {{ formatMs(currentTotalClosedMs()) }}</ion-text>
+      </div>
+      <div class="daily-totals" style="margin-top:16px;">
+        <h4>Daily Totals</h4>
+        <ion-list lines="none">
+          <ion-item *ngFor="let d of currentDailyTotals()">
+            <ion-label>
+              <strong>{{ d.dateDisplay }}</strong>
+              <p>{{ d.human }} ({{ d.decimal | number:'1.2-2' }} hrs)</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </div>
+    } @else {
+      <ion-text>No sessions this month.</ion-text>
+    }
+  } @else {
+    <h2 class="month-label">{{ prevMonthLabel() }}</h2>
+    @if (prevMonthSessions().length > 0) {
+      <div class="grouped">
+        <div *ngFor="let g of prevGrouped()" class="day-group" style="margin-bottom:12px;">
+          <h4 style="margin:0;">{{ g.dateDisplay }} • {{ (g.totalMs/3600000) | number:'1.2-2' }} hrs ({{ formatMs(g.totalMs) }})</h4>
+        </div>
+      </div>
+      <div class="summary">
+        <ion-text>Total Closed Duration: {{ formatMs(prevTotalClosedMs()) }}</ion-text>
+      </div>
+      <div class="daily-totals" style="margin-top:16px;">
+        <h4>Daily Totals</h4>
+        <ion-list lines="none">
+          <ion-item *ngFor="let d of prevDailyTotals()">
+            <ion-label>
+              <strong>{{ d.dateDisplay }}</strong>
+              <p>{{ d.human }} ({{ d.decimal | number:'1.2-2' }} hrs)</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </div>
+    } @else {
+      <ion-text>No sessions last month.</ion-text>
+    }
+  }
 </ion-content>
