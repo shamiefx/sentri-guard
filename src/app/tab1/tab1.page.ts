@@ -240,8 +240,19 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   private async refreshTodaySessions() {
     try {
+      // Initial load fallback (immediate)
       const sessions = await this.punchService.getTodaySessions();
       this.todaySessions.set(sessions);
+      // Start real-time subscription (only once)
+      if (!(this as any)._todayWatcherStarted) {
+        (this as any)._todayWatcherStarted = true;
+        this.punchService.watchTodayUserPunches()
+          .pipe(takeUntil(this.destroyed$))
+          .subscribe(list => {
+            // Keep current active session elapsed timer separate; durations will be recalculated each emission
+            this.todaySessions.set(list);
+          });
+      }
     } catch { /* ignore */ }
   }
 

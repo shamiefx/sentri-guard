@@ -246,6 +246,33 @@ export class PunchService {
     }
   }
 
+  /** Real-time observable of today's punches for current user (includes active). */
+  watchTodayUserPunches(): Observable<(PunchRecord & { id:string; durationMs:number })[]> {
+    const user = this.auth.currentUser;
+    if (!user) return new Observable(sub => { sub.next([]); sub.complete(); });
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(start.getTime() + 86400000);
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+    const colRef = collection(this.firestore, 'punches');
+    const qRef = query(colRef,
+      where('userId','==', user.uid),
+      where('punchIn','>=', startISO),
+      where('punchIn','<', endISO),
+      orderBy('punchIn','asc')
+    );
+    return collectionData(qRef, { idField: 'id' }).pipe(
+      map((rows: any[]) => rows.map(r => ({
+        ...(r as PunchRecord),
+        id: (r as any).id,
+        durationMs: (r.punchIn && r.punchOut)
+          ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime())
+          : (r.punchIn ? (Date.now() - new Date(r.punchIn).getTime()) : 0)
+      })))
+    );
+  }
+
   /** Fetch all punches today for the current user's company (sorted by punchIn asc). */
   async getTodayCompanyPunches(): Promise<(PunchRecord & { id:string; durationMs:number; active:boolean })[]> {
     const user = this.auth.currentUser; if (!user) return [];
