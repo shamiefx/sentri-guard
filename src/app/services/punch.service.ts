@@ -308,6 +308,26 @@ export class PunchService {
         list.push({ ...(data as PunchRecord), id: d.id, durationMs: duration, active });
       });
       return list;
-    } catch { return []; }
+    } catch (err:any) {
+      // Likely missing composite index. Fallback: broad query companyCode only (limited) then client filter.
+      try {
+        const colRef = collection(this.firestore, 'punches');
+        const qRefFallback = query(colRef, where('companyCode','==', companyCode), limit(500));
+        const snap = await getDocs(qRefFallback);
+        const within: (PunchRecord & { id:string; durationMs:number; active:boolean })[] = [];
+        snap.forEach(d => {
+          const data: any = d.data();
+          if (!data.punchIn) return;
+          if (data.punchIn < startISO || data.punchIn >= endISO) return; // filter to today
+          const active = !data.punchOut;
+            const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : (Date.now() - new Date(data.punchIn).getTime());
+          within.push({ ...(data as PunchRecord), id: d.id, durationMs: duration, active });
+        });
+        within.sort((a,b)=> (a.punchIn||'').localeCompare(b.punchIn||''));
+        return within;
+      } catch {
+        return [];
+      }
+    }
   }
 }

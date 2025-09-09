@@ -75,6 +75,8 @@ export class Tab1Page implements OnInit, OnDestroy {
   await this.refreshTodaySessions();
   await this.refreshCompanyTodayPunches();
   this.refreshOfflineCount();
+  // Poll company punches every 60s (simpler than real-time for now)
+  setInterval(()=>{ this.refreshCompanyTodayPunches(); }, 60000);
   }
 
   async punchIn() {
