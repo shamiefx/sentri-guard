@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Auth, createUserWithEmailAndPassword, UserCredential } from '@angular/fire/auth';
+import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, UserCredential } from '@angular/fire/auth';
 import { Firestore, collection, doc, serverTimestamp, setDoc, query, where, getDocs, limit } from '@angular/fire/firestore';
 
 export interface RegisterPayload {
@@ -49,5 +49,19 @@ export class AuthService {
     };
     await setDoc(userDoc, profile);
     return cred;
+  }
+
+  /**
+   * Signs a user in with email & password.
+   */
+  async login(email: string, password: string): Promise<UserCredential> {
+    return await signInWithEmailAndPassword(this.auth, email, password);
+  }
+
+  /**
+   * Signs the current user out.
+   */
+  async logout(): Promise<void> {
+    await signOut(this.auth);
   }
 }
