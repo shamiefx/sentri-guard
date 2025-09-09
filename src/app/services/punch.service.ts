@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
-import { Firestore, addDoc, collection, doc, serverTimestamp, updateDoc, getDoc, query, where, limit, getDocs, orderBy, collectionData } from '@angular/fire/firestore';
+import { Firestore, addDoc, collection, doc, serverTimestamp, updateDoc, getDoc, query, where, limit, getDocs, orderBy, collectionData, startAfter } from '@angular/fire/firestore';
 import { Observable, map } from 'rxjs';
 import { Geolocation } from '@capacitor/geolocation';
 import { Camera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
@@ -329,5 +329,63 @@ export class PunchService {
         return [];
       }
     }
+  }
+
+  /** Paginated fetch of user punches (history). Sorted by punchIn desc. */
+  async getUserPunchesPage(pageSize = 50, cursorPunchInISO?: string): Promise<{ items:(PunchRecord & {id:string; durationMs:number})[]; nextCursor?: string | null }> {
+    const user = this.auth.currentUser; if (!user) return { items: [] };
+    try {
+      const colRef = collection(this.firestore, 'punches');
+      let qRef: any = query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(pageSize + 1));
+      if (cursorPunchInISO) {
+        qRef = query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), startAfter(cursorPunchInISO), limit(pageSize + 1));
+      }
+      const snap = await getDocs(qRef);
+      const items: (PunchRecord & {id:string; durationMs:number})[] = [];
+      snap.forEach(d => {
+        const data: any = d.data();
+        const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
+        items.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
+      });
+      let nextCursor: string | null | undefined = null;
+      if (items.length > pageSize) {
+        const extra = items.pop(); // remove extra used to detect next page
+        nextCursor = extra?.punchIn || null;
+      }
+      return { items, nextCursor };
+    } catch {
+      // Fallback: broad query without ordering (may be less efficient) then client sort + slice
+      try {
+        const colRef = collection(this.firestore, 'punches');
+        const broad = await getDocs(query(colRef, where('userId','==', user.uid), limit(1000)));
+        let all: (PunchRecord & {id:string; durationMs:number})[] = [];
+        broad.forEach(d => {
+          const data: any = d.data();
+          const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
+          all.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
+        });
+        all = all.filter(r => r.punchIn).sort((a,b)=> (b.punchIn||'').localeCompare(a.punchIn||''));
+        const slice = all.slice(cursorPunchInISO ? all.findIndex(r=> r.punchIn === cursorPunchInISO)+1 : 0, pageSize);
+        const next = slice.length === pageSize ? slice[slice.length-1].punchIn : null;
+        return { items: slice, nextCursor: next };
+      } catch {
+        return { items: [] };
+      }
+    }
+  }
+
+  /** Live (unpaginated) watch of latest N user punches (default 100). */
+  watchAllUserPunches(limitCount = 100): Observable<(PunchRecord & { id:string; durationMs:number })[]> {
+    const user = this.auth.currentUser;
+    if (!user) return new Observable(sub => { sub.next([]); sub.complete(); });
+    const colRef = collection(this.firestore, 'punches');
+    const qRef = query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(limitCount));
+    return collectionData(qRef, { idField: 'id' }).pipe(
+      map((rows: any[]) => rows.map(r => ({
+        ...(r as PunchRecord),
+        id: (r as any).id,
+        durationMs: (r.punchIn && r.punchOut) ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime()) : 0
+      })))
+    );
   }
 }
