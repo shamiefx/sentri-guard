@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import { Firestore, addDoc, collection, doc, serverTimestamp, updateDoc, getDoc, query, where, limit, getDocs, orderBy, collectionData, startAfter } from '@angular/fire/firestore';
-import { Observable, map } from 'rxjs';
+import { Observable, map, firstValueFrom } from 'rxjs';
 import { Geolocation } from '@capacitor/geolocation';
 import { Camera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
 
@@ -76,11 +76,20 @@ export class PunchService {
   async getOpenPunchId(): Promise<string | null> {
     const user = this.auth.currentUser;
     if (!user) return null;
-    const colRef = collection(this.firestore, 'punches');
-    const qRef = query(colRef, where('userId', '==', user.uid), where('punchOut', '==', null), limit(1));
-    const snap = await getDocs(qRef);
-    if (snap.empty) return null;
-    return snap.docs[0].id;
+    try {
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef, where('userId', '==', user.uid), where('punchOut', '==', null), limit(1));
+      const rows: any[] = await firstValueFrom(collectionData(qRef, { idField: 'id' }));
+      if (!rows.length) return null;
+      return rows[0].id;
+    } catch {
+      // fallback to one-time getDocs if observable path fails
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef, where('userId', '==', user.uid), where('punchOut', '==', null), limit(1));
+      const snap = await getDocs(qRef);
+      if (snap.empty) return null;
+      return snap.docs[0].id;
+    }
   }
 
   /** Punch in: creates a new record (only if none open) */

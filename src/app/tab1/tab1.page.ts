@@ -5,7 +5,7 @@ import { PunchService } from '../services/punch.service';
 import { OfflineQueueService } from '../services/offline-queue.service';
 import { CompanyService } from '../services/company.service';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
-import { Auth, onAuthStateChanged } from '@angular/fire/auth';
+import { Auth, authState } from '@angular/fire/auth';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter, Subject, takeUntil } from 'rxjs';
 
@@ -43,12 +43,11 @@ export class Tab1Page implements OnInit, OnDestroy {
   get punchedIn() { return this.activeRecordId() !== null; }
 
   async ngOnInit() {
-    // Auth state listener ensures we restore after a hard refresh once user is available
-    onAuthStateChanged(this.auth, async (user) => {
+    // Zone-aware auth state observable (prevents outside injection context warnings)
+    authState(this.auth).pipe(takeUntil(this.destroyed$)).subscribe(async user => {
       if (user) {
         await this.restoreSessionFull();
       } else {
-        // User signed out; reset state
         this.activeRecordId.set(null);
         this.clearElapsedTimer();
         this.message.set(null);
