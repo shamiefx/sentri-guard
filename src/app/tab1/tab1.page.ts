@@ -1,7 +1,8 @@
 import { Component, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge } from '@ionic/angular/standalone';
+import { IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge } from '@ionic/angular/standalone';
 import { PunchService } from '../services/punch.service';
+import { AuthService } from '../services/auth.service';
 import { OfflineQueueService } from '../services/offline-queue.service';
 import { CompanyService } from '../services/company.service';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
@@ -13,7 +14,7 @@ import { filter, Subject, takeUntil, interval, switchMap, from } from 'rxjs';
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
   styleUrls: ['tab1.page.scss'],
-  imports: [CommonModule, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge],
+  imports: [CommonModule, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge],
 })
 export class Tab1Page implements OnInit, OnDestroy {
   private activeRecordId = signal<string | null>(null);
@@ -38,7 +39,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     private punchService: PunchService,
     private companyService: CompanyService,
     private firestore: Firestore,
-    private auth: Auth,
+  private auth: Auth,
+  private authService: AuthService,
   private router: Router,
   private offlineQueue: OfflineQueueService,
   ) {}
@@ -345,5 +347,18 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.destroyed$.next();
     this.destroyed$.complete();
     this.clearElapsedTimer();
+  }
+
+  async logout() {
+    try {
+      await this.authService.logout();
+    } catch (e) {
+      // ignore
+    } finally {
+      this.activeRecordId.set(null);
+      this.clearElapsedTimer();
+      this.message.set(null);
+      this.router.navigateByUrl('/login');
+    }
   }
 }
