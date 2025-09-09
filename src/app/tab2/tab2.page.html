@@ -10,15 +10,21 @@
       <ion-card-title>Active Session</ion-card-title>
     </ion-card-header>
     <ion-card-content>
-      <div *ngIf="!activeSessionId() && !loading()">No active punch session. Start one in Tab 1.</div>
+      <div *ngIf="!activeSessionId() && !loading()">No recent session. Start one in Tab 1.</div>
       <div *ngIf="loading()"><ion-spinner name="crescent"></ion-spinner> Loading...</div>
       <div *ngIf="error()"><ion-text color="danger">{{ error() }}</ion-text></div>
       <div *ngIf="activeSessionId()">
         <ion-text>Session ID: {{ activeSessionId() }}</ion-text>
-        <ion-badge *ngIf="sessionClosed()" color="medium" style="margin-left:6px">Closed</ion-badge>
+        <ion-badge *ngIf="sessionClosed()" color="success" style="margin-left:6px">Complete</ion-badge>
         <div class="actions" style="margin-top:12px" *ngIf="!sessionClosed()">
           <ion-button size="small" (click)="addCheckpoint()" [disabled]="loading()">Add Checkpoint</ion-button>
           <ion-button size="small" fill="outline" (click)="refresh()" [disabled]="loading()">Refresh</ion-button>
+        </div>
+        <div *ngIf="sessionClosed()" style="margin-top:12px">
+          <ion-text color="medium">Checkpoint complete.</ion-text>
+          <div style="margin-top:8px">
+            <ion-button size="small" fill="outline" (click)="toggleHistory()">{{ showingHistory() ? 'Hide' : 'View' }} History</ion-button>
+          </div>
         </div>
       </div>
     </ion-card-content>
@@ -40,6 +46,48 @@
           </ion-label>
         </ion-item>
       </ion-list>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card *ngIf="showingHistory()">
+    <ion-card-header>
+      <ion-card-title>Recent Sessions</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-list lines="none">
+        <ion-item *ngFor="let s of recentSessions()" (click)="selectHistorySession(s)">
+          <ion-label>
+            <h3>{{ s.punchIn | date:'shortTime' }} - {{ s.punchOut | date:'shortTime' }}</h3>
+            <p>{{ (s.checkpoints?.length || 0) }} checkpoints</p>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+      <div *ngIf="!recentSessions().length && !loading()"><ion-text color="medium">No history found.</ion-text></div>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card *ngIf="selectedHistorySession()">
+    <ion-card-header>
+      <ion-card-title>Session Detail</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-text>
+        <p><strong>In:</strong> {{ selectedHistorySession().punchIn | date:'short' }}</p>
+        <p><strong>Out:</strong> {{ selectedHistorySession().punchOut | date:'short' }}</p>
+      </ion-text>
+      <ion-list lines="inset" *ngIf="selectedHistorySession().checkpoints?.length">
+        <ion-item *ngFor="let c of selectedHistorySession().checkpoints; let i = index">
+          <ion-label class="ion-text-wrap">
+            <h3>Checkpoint {{ i + 1 }} • {{ c.createdAt | date:'shortTime' }}</h3>
+            <p>Lat: {{ c.location.lat | number:'1.4-4' }}, Lng: {{ c.location.lng | number:'1.4-4' }}</p>
+            <img *ngIf="c.photoDataUrl" [src]="c.photoDataUrl" alt="cp" style="max-width:100px;border-radius:4px;margin-top:4px;" />
+          </ion-label>
+        </ion-item>
+      </ion-list>
+      <div *ngIf="!(selectedHistorySession().checkpoints?.length)"><ion-text color="medium">No checkpoints in this session.</ion-text></div>
+      <div style="margin-top:12px">
+        <ion-button size="small" fill="outline" (click)="closeHistoryDetail()">Close</ion-button>
+      </div>
     </ion-card-content>
   </ion-card>
 </ion-content>

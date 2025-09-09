@@ -15,6 +15,9 @@ export class Tab2Page {
   checkpoints = signal<PunchCheckpoint[]>([]);
   activeSessionId = signal<string | null>(null);
   sessionClosed = signal(false);
+  showingHistory = signal(false);
+  recentSessions = signal<any[]>([]);
+  selectedHistorySession = signal<any | null>(null);
 
   constructor(private punchService: PunchService) {}
 
@@ -26,16 +29,25 @@ export class Tab2Page {
     this.loading.set(true);
     this.error.set(null);
     try {
+      // First attempt to load open session
       const open = await this.punchService.getOpenPunchWithCheckpoints();
-      if (!open) {
-        this.activeSessionId.set(null);
-        this.checkpoints.set([]);
-        this.sessionClosed.set(false);
-        return;
+      if (open) {
+        this.activeSessionId.set(open.id);
+        this.sessionClosed.set(!!open.punchOut);
+        this.checkpoints.set(open.checkpoints || []);
+      } else {
+        // fallback: last closed session
+        const lastClosed = await this.punchService.getLastClosedPunchWithCheckpoints();
+        if (lastClosed) {
+          this.activeSessionId.set(lastClosed.id);
+          this.sessionClosed.set(true);
+          this.checkpoints.set(lastClosed.checkpoints || []);
+        } else {
+          this.activeSessionId.set(null);
+          this.sessionClosed.set(false);
+          this.checkpoints.set([]);
+        }
       }
-      this.activeSessionId.set(open.id);
-      this.sessionClosed.set(!!open.punchOut);
-      this.checkpoints.set(open.checkpoints || []);
     } catch (e:any) {
       this.error.set(e.message || 'Failed to load');
     } finally {
@@ -54,6 +66,29 @@ export class Tab2Page {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  async toggleHistory() {
+    this.showingHistory.set(!this.showingHistory());
+    if (this.showingHistory() && this.recentSessions().length === 0) {
+      try {
+        this.loading.set(true);
+        const list = await this.punchService.getRecentClosedPunches(10);
+        this.recentSessions.set(list);
+      } catch (e:any) {
+        this.error.set(e.message || 'Failed to load history');
+      } finally {
+        this.loading.set(false);
+      }
+    }
+  }
+
+  selectHistorySession(session: any) {
+    this.selectedHistorySession.set(session);
+  }
+
+  closeHistoryDetail() {
+    this.selectedHistorySession.set(null);
   }
 
 }

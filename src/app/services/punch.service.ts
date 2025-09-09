@@ -186,6 +186,46 @@ export class PunchService {
     return { id: openId, ...(snap.data() as PunchRecord) };
   }
 
+  /** Fetch the most recent closed punch (punchOut != null) including checkpoints. */
+  async getLastClosedPunchWithCheckpoints(): Promise<(PunchRecord & { id:string }) | null> {
+    const user = this.auth.currentUser; if (!user) return null;
+    try {
+      const colRef = collection(this.firestore, 'punches');
+      // order by punchOut desc to find latest closed sessions
+      const qRef = query(colRef, where('userId','==', user.uid), where('punchOut','!=', null as any), orderBy('punchOut','desc'), limit(1));
+      const rows: any[] = await this.safeCollectionData(qRef);
+      if (!rows.length) return null;
+      return { ...(rows[0] as PunchRecord), id: rows[0].id };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Fetch recent (up to N) punch sessions (closed) including checkpoints field for history modal. */
+  async getRecentClosedPunches(limitCount = 10): Promise<(PunchRecord & { id:string })[]> {
+    const user = this.auth.currentUser; if (!user) return [];
+    try {
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef, where('userId','==', user.uid), where('punchOut','!=', null as any), orderBy('punchOut','desc'), limit(limitCount));
+      const rows: any[] = await this.safeCollectionData(qRef);
+      return rows.map(r => ({ ...(r as PunchRecord), id: r.id }));
+    } catch { return []; }
+  }
+
+  private async safeCollectionData(qRef: any): Promise<any[]> {
+    try {
+      return await firstValueFrom(collectionData(qRef, { idField: 'id' }));
+    } catch {
+      const snap = await getDocs(qRef);
+      const arr: any[] = [];
+      snap.forEach(d => {
+        const data: any = d.data() || {};
+        arr.push({ id: d.id, ...data });
+      });
+      return arr;
+    }
+  }
+
   /** Punch out: updates latest open record (no punchOut). */
   async punchOut(recordId: string) {
   const user = this.auth.currentUser;
