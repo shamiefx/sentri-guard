@@ -2,8 +2,19 @@
 // `ng build` replaces `environment.ts` with `environment.prod.ts`.
 // The list of file replacements can be found in `angular.json`.
 
+// Development environment configuration (real Firebase config provided)
+// NOTE: Firebase client config is NOT a secret; security relies on Firestore/Storage rules & App Check.
 export const environment = {
-  production: false
+  production: false,
+  firebase: {
+    apiKey: 'AIzaSyDfvZKiuhM5TCgvBOOoDs2bn749-uwiOOU',
+    authDomain: 'sentri-guard.firebaseapp.com',
+    projectId: 'sentri-guard',
+    storageBucket: 'sentri-guard.firebasestorage.app',
+    messagingSenderId: '253320309966',
+    appId: '1:253320309966:web:8ae228027f3bffc4b5749f',
+    measurementId: 'G-1517B88766'
+  }
 };
 
 /*

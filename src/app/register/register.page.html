@@ -1,0 +1,46 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Register</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <ion-list lines="inset">
+      <ion-item>
+        <ion-label position="stacked">Staff ID<span class="req">*</span></ion-label>
+        <ion-input formControlName="staffId" placeholder="e.g. ST123"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="f.staffId.touched && f.staffId.invalid">Staff ID required (min 2 chars)</ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Email<span class="req">*</span></ion-label>
+        <ion-input type="email" formControlName="email" placeholder="you@company.com"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="f.email.touched && f.email.invalid">Valid email required</ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Password<span class="req">*</span></ion-label>
+        <ion-input type="password" formControlName="password" placeholder="Minimum 6 characters"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="f.password.touched && f.password.invalid">Password min length 6</ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Company Code<span class="req">*</span></ion-label>
+        <ion-input formControlName="companyCode" placeholder="Company code"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="f.companyCode.touched && f.companyCode.invalid">Company code required</ion-note>
+    </ion-list>
+
+    <div class="status" *ngIf="error()">
+      <ion-note color="danger">{{ error() }}</ion-note>
+    </div>
+
+    <ion-button expand="block" type="submit" [disabled]="loading() || form.invalid">
+      <ng-container *ngIf="!loading(); else loadingTpl">Create Account</ng-container>
+    </ion-button>
+    <ng-template #loadingTpl>
+      <ion-spinner name="crescent"></ion-spinner>
+    </ng-template>
+  </form>
+</ion-content>

@@ -1,17 +1,90 @@
-<ion-header [translucent]="true">
+<ion-header>
   <ion-toolbar>
-    <ion-title>
-      Tab 1
-    </ion-title>
+    <ion-title>Punch Time</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Tab 1</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>{{ punchedIn ? 'Currently Punched In' : 'Ready to Punch In' }}</ion-card-title>
+    </ion-card-header>
+    <ion-card *ngIf="todaySessions().length">
+      <ion-card-header>
+        <ion-card-title>Today's Sessions</ion-card-title>
+        <ion-card-subtitle>All punch intervals</ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list lines="none">
+          <ion-item *ngFor="let s of todaySessions(); let i = index">
+            <ion-label class="ion-text-wrap">
+              <h3>Session {{ i + 1 }}</h3>
+              <p>
+                In: {{ s.punchIn?.toDate ? (s.punchIn.toDate() | date:'shortTime') : (s.punchIn | date:'shortTime') }}
+                &nbsp;–&nbsp;
+                Out: 
+                <ng-container *ngIf="s.punchOut; else activeTpl">
+                  {{ s.punchOut?.toDate ? (s.punchOut.toDate() | date:'shortTime') : (s.punchOut | date:'shortTime') }}
+                </ng-container>
+                <ng-template #activeTpl><strong>Active</strong></ng-template>
+              </p>
+              <p>Duration: {{ formatMs(s.durationMs) }}</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+    <ion-card-content>
+      <div *ngIf="punchedIn && elapsedDisplay()" class="elapsed">
+        <ion-text color="medium">Elapsed: {{ elapsedDisplay() }}</ion-text>
+      </div>
+      <div *ngIf="message()" class="msg"> <ion-text>{{ message() }}</ion-text></div>
+      <ion-button expand="block" color="primary" (click)="punchIn()" *ngIf="!punchedIn" [disabled]="loading()">
+        <ng-container *ngIf="!loading(); else inLoad">Punch In</ng-container>
+      </ion-button>
+  <ion-button expand="block" color="danger" (click)="punchOut()" *ngIf="punchedIn" [disabled]="loading()">
+        <ng-container *ngIf="!loading(); else outLoad">Punch Out</ng-container>
+      </ion-button>
+      <ng-template #inLoad><ion-spinner name="crescent"></ion-spinner></ng-template>
+      <ng-template #outLoad><ion-spinner name="crescent"></ion-spinner></ng-template>
+    </ion-card-content>
+  </ion-card>
 
-  <app-explore-container name="Tab 1 page"></app-explore-container>
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Today</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-text>Total Worked: {{ formatMs(todayTotalMs()) }}</ion-text>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Recent Punches</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div *ngIf="history().length === 0">No history.</div>
+      <div *ngFor="let h of history(); let i=index" class="history-item">
+        <ion-text>
+          <strong>{{ h.punchIn ? (h.punchIn | date:'shortTime') : '?' }}</strong>
+          → {{ h.punchOut ? (h.punchOut | date:'shortTime') : '—' }}
+          <span *ngIf="h.durationMs"> ({{ formatMs(h.durationMs) }})</span>
+        </ion-text>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card *ngIf="offlineTasks() > 0">
+    <ion-card-header>
+      <ion-card-title>Offline Queue</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-text>{{ offlineTasks() }} pending action(s) will sync when online.</ion-text>
+      <div class="sync-actions">
+        <ion-button size="small" (click)="syncNow()" [disabled]="syncing()">{{ syncing() ? 'Syncing...' : 'Sync Now' }}</ion-button>
+      </div>
+      <ion-text *ngIf="syncResult()">{{ syncResult() }}</ion-text>
+    </ion-card-content>
+  </ion-card>
 </ion-content>

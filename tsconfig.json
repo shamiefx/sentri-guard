@@ -14,11 +14,13 @@
     "sourceMap": true,
     "declaration": false,
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+  // Use Angular-recommended ESM/bundler resolution.
+  "moduleResolution": "bundler",
+  // Removed invalid ignoreDeprecations (TS5103). Add later with a supported version (e.g. "5.0") if needed.
     "importHelpers": true,
-    "target": "es2022",
-    "module": "es2020",
-    "lib": ["es2018", "dom"],
+  "target": "es2022",
+  "module": "es2022",
+  "lib": ["es2022", "dom"],
     "useDefineForClassFields": false
   },
   "angularCompilerOptions": {
