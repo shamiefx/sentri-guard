@@ -1,1 +1,26 @@
+/* Floating logout FAB */
+.fab-logout {
+	position: fixed;
+	right: 18px;
+	bottom: 78px; /* above tab bar */
+	width: 54px;
+	height: 54px;
+	border-radius: 50%;
+	background: linear-gradient(135deg,#dc2626,#ef4444);
+	color:#fff;
+	border:none;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	box-shadow:0 8px 24px -6px rgba(0,0,0,.45);
+	cursor:pointer;
+	z-index:1000;
+	transition:transform .18s ease, box-shadow .18s ease, background .3s ease;
+}
+.fab-logout ion-icon { font-size:24px; }
+.fab-logout:active { transform:scale(.92); }
+.fab-logout:hover { box-shadow:0 10px 30px -4px rgba(0,0,0,.55); }
+@media (prefers-color-scheme: light) {
+	.fab-logout { box-shadow:0 6px 20px -4px rgba(0,0,0,.35); }
+}
 

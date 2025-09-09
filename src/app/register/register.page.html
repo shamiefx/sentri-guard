@@ -1,31 +1,34 @@
-<ion-content class="auth-content" fullscreen>
+<ion-content class="auth-content ion-padding" fullscreen>
   <div class="brand">
+    <br>
+    <br>
     <h1>Create Account</h1>
     <p class="tagline">Join your company workspace</p>
   </div>
+  <hr>
   <div class="auth-card">
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <div class="field">
         <ion-label>Staff ID</ion-label>
-        <ion-input formControlName="staffId" placeholder="e.g. ST123"></ion-input>
+  <ion-input formControlName="staffId" placeholder="e.g. ST123" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
         <ion-note color="danger" *ngIf="f.staffId.touched && f.staffId.invalid">Required (min 2)</ion-note>
       </div>
       <div class="field">
         <ion-label>Email</ion-label>
-        <ion-input type="email" formControlName="email" placeholder="you@company.com"></ion-input>
+  <ion-input type="email" formControlName="email" placeholder="you@company.com" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
         <ion-note color="danger" *ngIf="f.email.touched && f.email.invalid">Valid email required</ion-note>
       </div>
       <div class="field">
         <ion-label>Password</ion-label>
         <div class="password-row">
-          <ion-input [type]="showPwd ? 'text' : 'password'" formControlName="password" placeholder="Minimum 6 characters"></ion-input>
+          <ion-input [type]="showPwd ? 'text' : 'password'" formControlName="password" placeholder="Minimum 6 characters" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
           <ion-button fill="clear" size="small" type="button" (click)="togglePwd()">{{ showPwd ? 'Hide' : 'Show' }}</ion-button>
         </div>
         <ion-note color="danger" *ngIf="f.password.touched && f.password.invalid">Min length 6</ion-note>
       </div>
       <div class="field">
         <ion-label>Company Code</ion-label>
-        <ion-input formControlName="companyCode" placeholder="Company code"></ion-input>
+  <ion-input formControlName="companyCode" placeholder="Company code" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
         <ion-note color="danger" *ngIf="f.companyCode.touched && f.companyCode.invalid">Company code required</ion-note>
       </div>
       <div class="status" *ngIf="error()"><ion-note color="danger">{{ error() }}</ion-note></div>
@@ -34,7 +37,7 @@
           <ng-container *ngIf="!loading(); else loadBtn">Create Account</ng-container>
         </ion-button>
         <ng-template #loadBtn><ion-spinner name="crescent"></ion-spinner></ng-template>
-        <a routerLink="/login" class="link-btn">Back to Login</a>
+  <a routerLink="/login" class="link-btn" routerDirection="back">Back to login</a>
       </div>
     </form>
   </div>

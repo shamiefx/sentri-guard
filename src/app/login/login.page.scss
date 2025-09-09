@@ -48,7 +48,10 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 40%, transparent);
 }
 .input-wrap ion-icon { font-size:20px; opacity:.9; }
-.input-wrap ion-input { flex:1; --color: #e5e7eb; --placeholder-color: #9ca3af; }
+.input-wrap ion-input { flex:1; --color: #e5e7eb; --placeholder-color: #94a3b8; }
+
+/* In case any ion-labels are added later for visibility */
+ion-label { color:#94a3b8 !important; }
 
 .field.is-invalid .input-wrap { border-color: var(--danger); }
 .field.is-invalid ion-note { margin-top:-4px; }

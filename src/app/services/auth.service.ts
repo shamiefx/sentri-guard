@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, UserCredential } from '@angular/fire/auth';
+import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, UserCredential } from '@angular/fire/auth';
 import { Firestore, collection, doc, serverTimestamp, setDoc, query, where, getDocs, limit } from '@angular/fire/firestore';
 
 export interface RegisterPayload {
@@ -63,5 +63,12 @@ export class AuthService {
    */
   async logout(): Promise<void> {
     await signOut(this.auth);
+  }
+
+  /**
+   * Sends a password reset email. Does not reveal whether account exists (Firebase standard behavior).
+   */
+  async resetPassword(email: string): Promise<void> {
+    await sendPasswordResetEmail(this.auth, email);
   }
 }
