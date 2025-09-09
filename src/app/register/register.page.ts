@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { IonHeader, IonToolbar, IonTitle, IonContent, IonInput, IonItem, IonLabel, IonButton, IonList, IonNote, IonSpinner } from '@ionic/angular/standalone';
+import { IonContent, IonInput, IonLabel, IonButton, IonNote, IonSpinner } from '@ionic/angular/standalone';
 import { AuthService } from '../services/auth.service';
 import { CompanyService } from '../services/company.service';
 
@@ -11,7 +11,7 @@ import { CompanyService } from '../services/company.service';
   selector: 'app-register',
   templateUrl: './register.page.html',
   styleUrls: ['./register.page.scss'],
-  imports: [CommonModule, ReactiveFormsModule, IonHeader, IonToolbar, IonTitle, IonContent, IonInput, IonItem, IonLabel, IonButton, IonList, IonNote, IonSpinner]
+  imports: [CommonModule, ReactiveFormsModule, IonContent, IonInput, IonLabel, IonButton, IonNote, IonSpinner]
 })
 export class RegisterPage {
   private fb = inject(FormBuilder);
@@ -21,6 +21,7 @@ export class RegisterPage {
 
   loading = signal(false);
   error = signal<string | null>(null);
+  showPwd = false;
 
   form = this.fb.group({
     staffId: ['', [Validators.required, Validators.minLength(2)]],
@@ -52,4 +53,6 @@ export class RegisterPage {
       this.loading.set(false);
     }
   }
+
+  togglePwd(){ this.showPwd = !this.showPwd; }
 }

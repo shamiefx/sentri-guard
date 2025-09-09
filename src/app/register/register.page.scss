@@ -1,3 +1,16 @@
-.req { color: var(--ion-color-danger); margin-left: 2px; }
-.status { margin: 12px 0; }
-form ion-button { margin-top: 16px; }
+@use '../login/login.page' as *;
+/* Shared styles imported via simple duplication if build doesn't process @use; fallback definitions below */
+.auth-content {display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;background:linear-gradient(145deg,#1e293b,#0f172a);color:#fff;padding:32px 16px;}
+.brand {text-align:center;margin-bottom:28px;}
+.brand h1 {margin:0;font-size:2rem;font-weight:600;letter-spacing:.5px;}
+.brand .tagline {margin:4px 0 0;font-size:.85rem;opacity:.75;}
+.auth-card {width:100%;max-width:420px;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:28px 26px;box-shadow:0 10px 30px -10px rgba(0,0,0,.6);} 
+.field {margin-bottom:18px;display:flex;flex-direction:column;gap:6px;}
+.field ion-label {font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;font-weight:500;color:#e2e8f0;}
+.password-row {display:flex;align-items:center;gap:4px;}
+.password-row ion-input {flex:1;}
+.actions {margin-top:4px;display:flex;flex-direction:column;gap:8px;}
+.link-btn {background:none;border:none;color:#60a5fa;font-size:.8rem;align-self:flex-start;padding:4px 2px;cursor:pointer;text-decoration:none;}
+.link-btn:focus-visible {outline:2px solid #60a5fa;outline-offset:2px;}
+.status {margin-top:4px;}
+ion-button {--border-radius:14px;}
