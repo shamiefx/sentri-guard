@@ -8,6 +8,8 @@ import { Camera, CameraResultType, CameraSource, CameraDirection } from '@capaci
 export interface PunchRecord {
   userId: string;
   companyCode?: string;
+  staffId?: string;
+  email?: string;
   punchIn?: string; // ISO timestamp
   punchInLocation?: { lat: number; lng: number; accuracy?: number };
   punchInPhotoDataUrl?: string; // base64 / data URL (lightweight; consider storage for prod)
@@ -94,14 +96,18 @@ export class PunchService {
   const location = await this.captureLocation();
   // Fallback: derive companyCode from user profile if not provided
     let finalCompanyCode = companyCode;
-    if (!finalCompanyCode) {
-      try {
-        const userProfileRef = doc(this.firestore, 'users', user.uid);
-        const snap = await getDoc(userProfileRef);
-        finalCompanyCode = (snap.exists() ? (snap.data() as any).companyCode : undefined) || undefined;
-      } catch {
-        // ignore profile fetch errors
+    let staffId: string | undefined;
+    let email: string | undefined = user.email || undefined;
+    try {
+      const userProfileRef = doc(this.firestore, 'users', user.uid);
+      const snap = await getDoc(userProfileRef);
+      if (snap.exists()) {
+        const profile: any = snap.data();
+        finalCompanyCode = finalCompanyCode || profile.companyCode || undefined;
+        staffId = profile.staffId || undefined;
       }
+    } catch {
+      // ignore profile fetch errors
     }
   await this.validateGeofence(location, finalCompanyCode);
     const punch: PunchRecord = {
@@ -113,6 +119,8 @@ export class PunchService {
       updatedAt: serverTimestamp(),
       punchOut: null,
       ...(finalCompanyCode ? { companyCode: finalCompanyCode } : {})
+      , ...(staffId ? { staffId } : {})
+      , ...(email ? { email } : {})
     };
     const colRef = collection(this.firestore, 'punches');
     const docRef = await addDoc(colRef, punch as any);
@@ -236,5 +244,43 @@ export class PunchService {
     } catch {
       return [];
     }
+  }
+
+  /** Fetch all punches today for the current user's company (sorted by punchIn asc). */
+  async getTodayCompanyPunches(): Promise<(PunchRecord & { id:string; durationMs:number; active:boolean })[]> {
+    const user = this.auth.currentUser; if (!user) return [];
+    // Determine companyCode from user profile
+    let companyCode: string | undefined;
+    try {
+      const profSnap = await getDoc(doc(this.firestore, 'users', user.uid));
+      if (profSnap.exists()) {
+        const data: any = profSnap.data();
+        companyCode = data.companyCode;
+      }
+    } catch { /* ignore */ }
+    if (!companyCode) return [];
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(start.getTime() + 86400000);
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+    try {
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef,
+        where('companyCode','==', companyCode),
+        where('punchIn','>=', startISO),
+        where('punchIn','<', endISO),
+        orderBy('punchIn','asc')
+      );
+      const snap = await getDocs(qRef);
+      const list: (PunchRecord & { id:string; durationMs:number; active:boolean })[] = [];
+      snap.forEach(d => {
+        const data: any = d.data();
+        const active = !data.punchOut;
+        const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : (data.punchIn ? (Date.now() - new Date(data.punchIn).getTime()) : 0);
+        list.push({ ...(data as PunchRecord), id: d.id, durationMs: duration, active });
+      });
+      return list;
+    } catch { return []; }
   }
 }

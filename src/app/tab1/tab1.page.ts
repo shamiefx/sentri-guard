@@ -1,6 +1,6 @@
 import { Component, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel } from '@ionic/angular/standalone';
+import { IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge } from '@ionic/angular/standalone';
 import { PunchService } from '../services/punch.service';
 import { OfflineQueueService } from '../services/offline-queue.service';
 import { CompanyService } from '../services/company.service';
@@ -13,7 +13,7 @@ import { filter, Subject, takeUntil } from 'rxjs';
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
   styleUrls: ['tab1.page.scss'],
-  imports: [CommonModule, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel],
+  imports: [CommonModule, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge],
 })
 export class Tab1Page implements OnInit, OnDestroy {
   private activeRecordId = signal<string | null>(null);
@@ -27,6 +27,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   history = signal<any[]>([]);
   offlineTasks = signal(0);
   todaySessions = signal<any[]>([]);
+  companyTodayPunches = signal<any[]>([]);
   syncing = signal(false);
   syncResult = signal<string | null>(null);
 
@@ -63,6 +64,7 @@ export class Tab1Page implements OnInit, OnDestroy {
         await this.refreshOpenSession();
     await this.refreshTodayTotal();
   await this.refreshTodaySessions();
+  await this.refreshCompanyTodayPunches();
     this.refreshOfflineCount();
       }
     });
@@ -71,6 +73,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   this.initHistoryWatcher();
   await this.refreshTodayTotal();
   await this.refreshTodaySessions();
+  await this.refreshCompanyTodayPunches();
   this.refreshOfflineCount();
   }
 
@@ -93,6 +96,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.loading.set(false);
       await this.refreshTodayTotal();
   await this.refreshTodaySessions();
+  await this.refreshCompanyTodayPunches();
     }
   }
 
@@ -114,6 +118,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.loading.set(false);
       await this.refreshTodayTotal();
   await this.refreshTodaySessions();
+  await this.refreshCompanyTodayPunches();
     }
   }
 
@@ -237,6 +242,13 @@ export class Tab1Page implements OnInit, OnDestroy {
     try {
       const sessions = await this.punchService.getTodaySessions();
       this.todaySessions.set(sessions);
+    } catch { /* ignore */ }
+  }
+
+  private async refreshCompanyTodayPunches() {
+    try {
+      const list = await this.punchService.getTodayCompanyPunches();
+      this.companyTodayPunches.set(list);
     } catch { /* ignore */ }
   }
 
