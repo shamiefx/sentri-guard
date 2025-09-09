@@ -1,44 +1,93 @@
-<ion-content class="auth-content ion-padding" fullscreen>
-  <div class="brand">
-    <br>
-    <br>
-    <h1>Create Account</h1>
-    <p class="tagline">Join your company workspace</p>
+<ion-content class="auth-content ion-padding page-animate" fullscreen>
+  <div class="brand fade-in">
+    <h1>Daftar Akaun</h1>
+    <p class="tagline">Sertai ruang kerja syarikat anda</p>
   </div>
-  <hr>
-  <div class="auth-card">
+
+  <div class="auth-card pop-in" [class.blur]="loading()">
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <div class="field">
-        <ion-label>Staff ID</ion-label>
-  <ion-input formControlName="staffId" placeholder="e.g. ST123" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
-        <ion-note color="danger" *ngIf="f.staffId.touched && f.staffId.invalid">Required (min 2)</ion-note>
-      </div>
-      <div class="field">
-        <ion-label>Email</ion-label>
-  <ion-input type="email" formControlName="email" placeholder="you@company.com" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
-        <ion-note color="danger" *ngIf="f.email.touched && f.email.invalid">Valid email required</ion-note>
-      </div>
-      <div class="field">
-        <ion-label>Password</ion-label>
-        <div class="password-row">
-          <ion-input [type]="showPwd ? 'text' : 'password'" formControlName="password" placeholder="Minimum 6 characters" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
-          <ion-button fill="clear" size="small" type="button" (click)="togglePwd()">{{ showPwd ? 'Hide' : 'Show' }}</ion-button>
+      <!-- Nama -->
+      <div class="field" [class.is-invalid]="f.name.touched && f.name.invalid">
+        <label class="sr-only" for="name">Nama</label>
+        <div class="input-wrap">
+          <ion-icon name="person-outline" aria-hidden="true"></ion-icon>
+          <ion-input id="name" formControlName="name" placeholder="Nama penuh" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false"></ion-input>
         </div>
-        <ion-note color="danger" *ngIf="f.password.touched && f.password.invalid">Min length 6</ion-note>
+        @if (f.name.touched && f.name.invalid) {
+          <ion-note color="danger">Nama diperlukan (min 2)</ion-note>
+        }
       </div>
-      <div class="field">
-        <ion-label>Company Code</ion-label>
-  <ion-input formControlName="companyCode" placeholder="Company code" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
-        <ion-note color="danger" *ngIf="f.companyCode.touched && f.companyCode.invalid">Company code required</ion-note>
+
+      <!-- Staff ID -->
+      <div class="field" [class.is-invalid]="f.staffId.touched && f.staffId.invalid">
+        <label class="sr-only" for="staffId">ID Staf</label>
+        <div class="input-wrap">
+          <ion-icon name="finger-print-outline" aria-hidden="true"></ion-icon>
+          <ion-input id="staffId" formControlName="staffId" placeholder="cth. ST123" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
+        </div>
+        @if (f.staffId.touched && f.staffId.invalid) {
+          <ion-note color="danger">Diperlukan (min 2)</ion-note>
+        }
       </div>
-      <div class="status" *ngIf="error()"><ion-note color="danger">{{ error() }}</ion-note></div>
+
+      <!-- Emel -->
+      <div class="field" [class.is-invalid]="f.email.touched && f.email.invalid">
+        <label class="sr-only" for="email">Emel</label>
+        <div class="input-wrap">
+          <ion-icon name="mail-outline" aria-hidden="true"></ion-icon>
+          <ion-input id="email" type="email" inputmode="email" formControlName="email" placeholder="anda@syarikat.com" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" [clearInput]="true" [debounce]="150"></ion-input>
+        </div>
+        @if (f.email.touched && f.email.invalid) {
+          <ion-note color="danger">Emel sah diperlukan</ion-note>
+        }
+      </div>
+
+      <!-- Kata Laluan -->
+      <div class="field" [class.is-invalid]="f.password.touched && f.password.invalid">
+        <label class="sr-only" for="password">Kata Laluan</label>
+        <div class="input-wrap">
+          <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+          <ion-input id="password" [type]="showPwd ? 'text' : 'password'" formControlName="password" placeholder="Minimum 6 aksara" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next"></ion-input>
+          <ion-button fill="clear" size="small" type="button" class="icon-button" (click)="togglePwd()" [attr.aria-pressed]="showPwd" [attr.aria-label]="showPwd ? 'Sembunyi kata laluan' : 'Tunjuk kata laluan'">
+            <ion-icon [name]="showPwd ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+          </ion-button>
+        </div>
+        @if (f.password.touched && f.password.invalid) {
+          <ion-note color="danger">Panjang minimum 6</ion-note>
+        }
+      </div>
+
+      <!-- Kod Syarikat -->
+      <div class="field" [class.is-invalid]="f.companyCode.touched && f.companyCode.invalid">
+        <label class="sr-only" for="companyCode">Kod Syarikat</label>
+        <div class="input-wrap">
+          <ion-icon name="business-outline" aria-hidden="true"></ion-icon>
+          <ion-input id="companyCode" formControlName="companyCode" placeholder="Kod syarikat" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></ion-input>
+        </div>
+        @if (f.companyCode.touched && f.companyCode.invalid) {
+          <ion-note color="danger">Kod syarikat diperlukan</ion-note>
+        }
+      </div>
+
+      @if (error()) {
+        <div class="status"><ion-note color="danger">{{ error() }}</ion-note></div>
+      }
+
+      <!-- Actions -->
       <div class="actions">
-        <ion-button type="submit" expand="block" [disabled]="loading() || form.invalid">
-          <ng-container *ngIf="!loading(); else loadBtn">Create Account</ng-container>
+        <ion-button class="primary-btn" type="submit" expand="block" [disabled]="loading() || form.invalid">
+          @if (!loading()) { Daftar Akaun } @else { <ion-spinner name="crescent" aria-label="Sedang mendaftar"></ion-spinner> }
         </ion-button>
-        <ng-template #loadBtn><ion-spinner name="crescent"></ion-spinner></ng-template>
-  <a routerLink="/login" class="link-btn" routerDirection="back">Back to login</a>
+        <div class="links">
+          <a routerLink="/login" class="link-btn" routerDirection="back">Kembali ke Log Masuk</a>
+        </div>
       </div>
     </form>
   </div>
+
+  @if (loading()) {
+    <div class="scrim" aria-hidden="true">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  }
 </ion-content>

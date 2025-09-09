@@ -1,6 +1,8 @@
+
 import { Injectable, inject, runInInjectionContext, EnvironmentInjector } from '@angular/core';
-import { Auth } from '@angular/fire/auth';
-import { Firestore, addDoc, collection, doc, serverTimestamp, updateDoc, getDoc, query, where, limit, getDocs, orderBy, collectionData, startAfter } from '@angular/fire/firestore';
+import { Auth, user } from '@angular/fire/auth';
+import { Firestore, addDoc, collection, doc, serverTimestamp, updateDoc, getDoc, query, where, limit, getDocs, orderBy, collectionData, startAfter, deleteField } from '@angular/fire/firestore';
+import { getStorage, ref, uploadString, getDownloadURL } from '@angular/fire/storage';
 import { Observable, map, firstValueFrom } from 'rxjs';
 import { Geolocation } from '@capacitor/geolocation';
 import { Camera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
@@ -10,12 +12,16 @@ export interface PunchRecord {
   companyCode?: string;
   staffId?: string;
   email?: string;
-  punchIn?: string; // ISO timestamp
+  // punchIn / punchOut now stored as Firestore Timestamp (Date) going forward.
+  // Legacy documents may still have ISO string values; code handles both.
+  punchIn?: any; // Firestore Timestamp | Date | string
   punchInLocation?: { lat: number; lng: number; accuracy?: number };
-  punchInPhotoDataUrl?: string; // base64 / data URL (lightweight; consider storage for prod)
-  punchOut?: string | null; // null while session open
+  punchInPhotoPath?: string; // storage path
+  punchInPhotoUrl?: string; // optional cached URL
+  punchOut?: any | null; // Firestore Timestamp | Date | string | null
   punchOutLocation?: { lat: number; lng: number; accuracy?: number };
-  punchOutPhotoDataUrl?: string;
+  punchOutPhotoPath?: string;
+  punchOutPhotoUrl?: string;
   createdAt?: any;
   updatedAt?: any;
   // Embedded checkpoints (keep count modest to avoid 1MB doc size limit)
@@ -26,14 +32,42 @@ export interface PunchCheckpoint {
   id: string;
   createdAt: string; // ISO timestamp
   location: { lat: number; lng: number; accuracy?: number };
-  photoDataUrl: string; // downsized base64 image
+  photoPath?: string;
+  photoUrl?: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class PunchService {
+  /** Fetch all punches for current user (for debug/fallback). */
+  async getAllPunchesForUser(): Promise<any[]> {
+    const user = this.auth.currentUser; if (!user) return [];
+    const colRef = collection(this.firestore, 'punches');
+    const snap = await getDocs(query(colRef, where('userId','==', user.uid), limit(2000)));
+    const arr: any[] = [];
+    snap.forEach(d => arr.push(d.data()));
+    return arr;
+  }
   private firestore = inject(Firestore);
   private auth = inject<Auth>(Auth as any);
   private injector = inject(EnvironmentInjector);
+  // Maximum dimension (width or height) for uploaded images (medium ~1K px)
+  private readonly MAX_IMAGE_DIMENSION = 1000;
+  // Helper: safely convert Firestore Timestamp / Date / string to epoch ms
+  getTimeMs(v: any | null | undefined): number | null {
+    if (!v) return null;
+    // Firestore Timestamp objects have toDate()
+    try {
+      if (typeof v.toDate === 'function') {
+        return v.toDate().getTime();
+      }
+    } catch { /* ignore */ }
+    if (v instanceof Date) return v.getTime();
+    if (typeof v === 'string') {
+      const t = Date.parse(v);
+      return isNaN(t) ? null : t;
+    }
+    return null;
+  }
 
   async captureLocation(): Promise<{ lat: number; lng: number; accuracy?: number }> {
     const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
@@ -41,20 +75,21 @@ export class PunchService {
   }
 
   async capturePhotoFrontAndResize(): Promise<string> {
-    // Open front camera first (no location yet to minimize delay before user action)
+    // Capture front camera photo. We request a large size then downscale to a medium 1000px max dimension.
+    // Using explicit width/height helps some platforms deliver an already resized image.
     const photo = await Camera.getPhoto({
       resultType: CameraResultType.DataUrl,
       source: CameraSource.Camera,
       direction: CameraDirection.Front,
-      quality: 55,
-      width: 480,
-      height: 480,
+      quality: 70, // slightly higher since we rely on Storage now
+      width: this.MAX_IMAGE_DIMENSION,
+      height: this.MAX_IMAGE_DIMENSION,
       allowEditing: false,
     });
     const dataUrl = photo.dataUrl || '';
-    // Additional client-side downscale to ~256px max dimension for Firestore size efficiency
+    // Downscale (or keep) to <= 1000px longest side to control file size (roughly "medium" quality)
     try {
-      const resized = await this.downscaleDataUrl(dataUrl, 256);
+      const resized = await this.downscaleDataUrl(dataUrl, this.MAX_IMAGE_DIMENSION);
       return resized;
     } catch {
       return dataUrl; // fallback if resize fails
@@ -80,6 +115,19 @@ export class PunchService {
       img.onerror = reject;
       img.src = dataUrl;
     });
+  }
+
+  private async uploadDataUrl(storagePath: string, dataUrl: string): Promise<{ path: string; url: string | null }> {
+    try {
+      const storage = getStorage();
+      const r = ref(storage, storagePath);
+      await uploadString(r, dataUrl, 'data_url');
+      let url: string | null = null;
+      try { url = await getDownloadURL(r); } catch { url = null; }
+      return { path: storagePath, url };
+    } catch {
+      return { path: storagePath, url: null };
+    }
   }
 
   /** Returns the open punch record id (if any) for the current user. */
@@ -113,6 +161,8 @@ export class PunchService {
   // 1. Capture selfie (front camera) 2. Get location 3. Store
   const photoDataUrl = await this.capturePhotoFrontAndResize();
   const location = await this.captureLocation();
+  const tsIn = Date.now();
+  const uploadIn = await this.uploadDataUrl(`punches/${user.uid}/${tsIn}_in.jpg`, photoDataUrl);
   // Fallback: derive companyCode from user profile if not provided
     let finalCompanyCode = companyCode;
     let staffId: string | undefined;
@@ -131,9 +181,10 @@ export class PunchService {
   await this.validateGeofence(location, finalCompanyCode);
     const punch: PunchRecord = {
       userId: user.uid,
-      punchIn: new Date().toISOString(),
+      punchIn: new Date(),
       punchInLocation: location,
-      punchInPhotoDataUrl: photoDataUrl,
+  punchInPhotoPath: uploadIn.path,
+  ...(uploadIn.url ? { punchInPhotoUrl: uploadIn.url } : {}),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       punchOut: null,
@@ -163,13 +214,16 @@ export class PunchService {
       throw new Error('Too many checkpoints (limit ~80 to avoid doc size issues)');
     }
     // Capture photo & location
-    const photoDataUrl = await this.capturePhotoFrontAndResize();
-    const location = await this.captureLocation();
+  const photoDataUrl = await this.capturePhotoFrontAndResize();
+  const location = await this.captureLocation();
+  const tsCp = Date.now();
+  const uploadCp = await this.uploadDataUrl(`punches/${user.uid}/${openId}/checkpoints/${tsCp}_cp.jpg`, photoDataUrl);
     const checkpoint: PunchCheckpoint = {
       id: (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36)+Math.random().toString(36).slice(2,8))),
       createdAt: new Date().toISOString(),
       location,
-      photoDataUrl,
+  photoPath: uploadCp.path,
+  ...(uploadCp.url ? { photoUrl: uploadCp.url } : {}),
     };
     const newArray = [...checkpoints, checkpoint];
     await updateDoc(ref, { checkpoints: newArray, updatedAt: serverTimestamp() });
@@ -230,8 +284,10 @@ export class PunchService {
   async punchOut(recordId: string) {
   const user = this.auth.currentUser;
     if (!user) throw new Error('Not authenticated');
-    const photoDataUrl = await this.capturePhotoFrontAndResize();
-    const location = await this.captureLocation();
+  const photoDataUrl = await this.capturePhotoFrontAndResize();
+  const location = await this.captureLocation();
+  const tsOut = Date.now();
+  const uploadOut = await this.uploadDataUrl(`punches/${user.uid}/${recordId}_out_${tsOut}.jpg`, photoDataUrl);
     // Validate geofence again on punch out
     const userProfileRef = doc(this.firestore, 'users', user.uid);
     let companyCode: string | undefined;
@@ -242,9 +298,10 @@ export class PunchService {
     await this.validateGeofence(location, companyCode);
     const ref = doc(this.firestore, 'punches', recordId);
     await updateDoc(ref, {
-      punchOut: new Date().toISOString(),
+      punchOut: new Date(),
       punchOutLocation: location,
-      punchOutPhotoDataUrl: photoDataUrl,
+  punchOutPhotoPath: uploadOut.path,
+  ...(uploadOut.url ? { punchOutPhotoUrl: uploadOut.url } : {}),
       updatedAt: serverTimestamp(),
     });
   }
@@ -291,7 +348,12 @@ export class PunchService {
       map((rows: any[]) => rows.map((r: any) => ({
         ...(r as PunchRecord),
         id: r.id,
-        durationMs: (r.punchOut && r.punchIn) ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime()) : 0
+        durationMs: (() => {
+          const start = this.getTimeMs(r.punchIn);
+          const end = this.getTimeMs(r.punchOut);
+          if (start && end) return end - start;
+          return 0;
+        })()
       })))
       );
     });
@@ -303,19 +365,18 @@ export class PunchService {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const end = new Date(start.getTime() + 86400000);
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
+  // Using Date objects directly (Firestore stores Timestamp)
     // Try ranged query; may require index. Fallback if fails.
     try {
       const colRef = collection(this.firestore, 'punches');
-      const qRef = query(colRef, where('userId','==', user.uid), where('punchIn','>=', startISO), where('punchIn','<', endISO));
+  const qRef = query(colRef, where('userId','==', user.uid), where('punchIn','>=', start), where('punchIn','<', end));
       const snap = await getDocs(qRef);
       let total = 0;
       snap.forEach(d => {
         const data: any = d.data();
-        if (data.punchIn && data.punchOut) {
-          total += (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime());
-        }
+  const start = this.getTimeMs(data.punchIn);
+  const end = this.getTimeMs(data.punchOut);
+  if (start && end) total += (end - start);
       });
       return total;
     } catch {
@@ -329,18 +390,39 @@ export class PunchService {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const end = new Date(start.getTime() + 86400000);
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
+  // Date range boundaries (local day)
     try {
       const colRef = collection(this.firestore, 'punches');
-      const qRef = query(colRef, where('userId','==', user.uid), where('punchIn','>=', startISO), where('punchIn','<', endISO), orderBy('punchIn','asc'));
+  const qRef = query(colRef, where('userId','==', user.uid), where('punchIn','>=', start), where('punchIn','<', end), orderBy('punchIn','asc'));
       const snap = await getDocs(qRef);
       const sessions: (PunchRecord & {id:string; durationMs:number})[] = [];
       snap.forEach(d => {
         const data: any = d.data();
-        const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : (data.punchIn ? (Date.now() - new Date(data.punchIn).getTime()) : 0);
+  const start = this.getTimeMs(data.punchIn);
+  const end = this.getTimeMs(data.punchOut);
+  const duration = (start && end) ? (end - start) : (start ? (Date.now() - start) : 0);
         sessions.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
       });
+      if (sessions.length === 0) {
+        // Fallback: legacy string punchIn values (different type prevents indexed range match)
+        try {
+          const broad = await getDocs(query(collection(this.firestore, 'punches'), where('userId','==', user.uid), limit(800)));
+          const list: (PunchRecord & {id:string; durationMs:number})[] = [];
+          const dayStartMs = start.getTime();
+          const dayEndMs = end.getTime();
+          broad.forEach(d => {
+            const data: any = d.data();
+            const pMs = this.getTimeMs(data.punchIn);
+            if (pMs == null) return;
+            if (pMs < dayStartMs || pMs >= dayEndMs) return;
+            const endMs = this.getTimeMs(data.punchOut);
+            const duration = (pMs && endMs) ? (endMs - pMs) : (pMs ? (Date.now() - pMs) : 0);
+            list.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
+          });
+          list.sort((a,b)=> (this.getTimeMs(a.punchIn)! - this.getTimeMs(b.punchIn)!));
+          return list;
+        } catch { /* ignore */ }
+      }
       return sessions;
     } catch {
       return [];
@@ -354,23 +436,25 @@ export class PunchService {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const end = new Date(start.getTime() + 86400000);
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
     return runInInjectionContext(this.injector, () => {
       const colRef = collection(this.firestore, 'punches');
       const qRef = query(colRef,
         where('userId','==', user.uid),
-        where('punchIn','>=', startISO),
-        where('punchIn','<', endISO),
+  where('punchIn','>=', start),
+  where('punchIn','<', end),
         orderBy('punchIn','asc')
       );
       return collectionData(qRef, { idField: 'id' }).pipe(
         map((rows: any[]) => rows.map(r => ({
           ...(r as PunchRecord),
           id: (r as any).id,
-          durationMs: (r.punchIn && r.punchOut)
-            ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime())
-            : (r.punchIn ? (Date.now() - new Date(r.punchIn).getTime()) : 0)
+          durationMs: (() => {
+            const start = this.getTimeMs(r.punchIn);
+            const end = this.getTimeMs(r.punchOut);
+            if (start && end) return end - start;
+            if (start) return Date.now() - start;
+            return 0;
+          })()
         })))
       );
     });
@@ -392,14 +476,13 @@ export class PunchService {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const end = new Date(start.getTime() + 86400000);
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
+  // Date boundaries for company punches
     try {
       const colRef = collection(this.firestore, 'punches');
       const qRef = query(colRef,
         where('companyCode','==', companyCode),
-        where('punchIn','>=', startISO),
-        where('punchIn','<', endISO),
+  where('punchIn','>=', start),
+  where('punchIn','<', end),
         orderBy('punchIn','asc')
       );
       const snap = await getDocs(qRef);
@@ -407,7 +490,9 @@ export class PunchService {
       snap.forEach(d => {
         const data: any = d.data();
         const active = !data.punchOut;
-        const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : (data.punchIn ? (Date.now() - new Date(data.punchIn).getTime()) : 0);
+  const sMs = this.getTimeMs(data.punchIn);
+  const eMs = this.getTimeMs(data.punchOut);
+  const duration = (sMs && eMs) ? (eMs - sMs) : (sMs ? (Date.now() - sMs) : 0);
         list.push({ ...(data as PunchRecord), id: d.id, durationMs: duration, active });
       });
       return list;
@@ -421,12 +506,18 @@ export class PunchService {
         snap.forEach(d => {
           const data: any = d.data();
           if (!data.punchIn) return;
-          if (data.punchIn < startISO || data.punchIn >= endISO) return; // filter to today
+          const pMs = this.getTimeMs(data.punchIn);
+          if (pMs == null) return;
+          const dayStartMs = start.getTime();
+          const dayEndMs = end.getTime();
+          if (pMs < dayStartMs || pMs >= dayEndMs) return; // filter to today
           const active = !data.punchOut;
-            const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : (Date.now() - new Date(data.punchIn).getTime());
+          const sMs = this.getTimeMs(data.punchIn);
+          const eMs = this.getTimeMs(data.punchOut);
+          const duration = (sMs && eMs) ? (eMs - sMs) : (sMs ? (Date.now() - sMs) : 0);
           within.push({ ...(data as PunchRecord), id: d.id, durationMs: duration, active });
         });
-        within.sort((a,b)=> (a.punchIn||'').localeCompare(b.punchIn||''));
+  within.sort((a,b)=> ((this.getTimeMs(a.punchIn)||0) - (this.getTimeMs(b.punchIn)||0)));
         return within;
       } catch {
         return [];
@@ -447,7 +538,9 @@ export class PunchService {
       const items: (PunchRecord & {id:string; durationMs:number})[] = [];
       snap.forEach(d => {
         const data: any = d.data();
-        const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
+  const start = this.getTimeMs(data.punchIn);
+  const end = this.getTimeMs(data.punchOut);
+  const duration = (start && end) ? (end - start) : 0;
         items.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
       });
       let nextCursor: string | null | undefined = null;
@@ -464,7 +557,9 @@ export class PunchService {
         let all: (PunchRecord & {id:string; durationMs:number})[] = [];
         broad.forEach(d => {
           const data: any = d.data();
-          const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
+          const start = this.getTimeMs(data.punchIn);
+          const end = this.getTimeMs(data.punchOut);
+          const duration = (start && end) ? (end - start) : 0;
           all.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
         });
         all = all.filter(r => r.punchIn).sort((a,b)=> (b.punchIn||'').localeCompare(a.punchIn||''));
@@ -488,51 +583,143 @@ export class PunchService {
         map((rows: any[]) => rows.map(r => ({
           ...(r as PunchRecord),
           id: (r as any).id,
-          durationMs: (r.punchIn && r.punchOut) ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime()) : 0
+          durationMs: (() => {
+            const start = this.getTimeMs(r.punchIn);
+            const end = this.getTimeMs(r.punchOut);
+            if (start && end) return end - start;
+            return 0;
+          })()
         })))
       );
     });
   }
 
-  /** Fetch punch sessions for a given month (UTC month boundaries). */
+  /** Fetch punch sessions for a given month (UTC month boundaries). Supports Timestamp & legacy ISO strings. */
   async getMonthSessions(year: number, monthIndex: number): Promise<(PunchRecord & { id:string; durationMs:number })[]> {
     const user = this.auth.currentUser; if (!user) return [];
-    const start = new Date(Date.UTC(year, monthIndex, 1, 0,0,0,0));
-    const end = new Date(Date.UTC(year, monthIndex+1, 1, 0,0,0,0));
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
+    const startDate = new Date(Date.UTC(year, monthIndex, 1, 0,0,0,0));
+    const endDate = new Date(Date.UTC(year, monthIndex+1, 1, 0,0,0,0));
+    const startMs = startDate.getTime();
+    const endMs = endDate.getTime();
+    const results: (PunchRecord & { id:string; durationMs:number })[] = [];
     try {
+      // Primary query assuming punchIn stored as Firestore Timestamp (compare using Date objects)
       const colRef = collection(this.firestore, 'punches');
-      const qRef = query(colRef,
+      const qRef = query(
+        colRef,
         where('userId','==', user.uid),
-        where('punchIn','>=', startISO),
-        where('punchIn','<', endISO),
+        where('punchIn','>=', startDate),
+        where('punchIn','<', endDate),
         orderBy('punchIn','asc')
       );
       const snap = await getDocs(qRef);
-      const list: (PunchRecord & { id:string; durationMs:number })[] = [];
       snap.forEach(d => {
         const data: any = d.data();
-        const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
-        list.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
+        const s = this.getTimeMs(data.punchIn);
+        const e = this.getTimeMs(data.punchOut);
+        const duration = (s && e) ? Math.max(0, e - s) : 0;
+        results.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
       });
-      return list;
-    } catch {
-      // Fallback broad query limited then client filter
+    } catch (err) {
+      // Ignore – will rely on broad fallback below
+    }
+    // If no results (likely legacy ISO string punchIn docs), broad fallback + filter
+    if (results.length === 0) {
       try {
         const colRef = collection(this.firestore, 'punches');
         const broad = await getDocs(query(colRef, where('userId','==', user.uid), limit(2000)));
-        const arr: (PunchRecord & { id:string; durationMs:number })[] = [];
         broad.forEach(d => {
           const data: any = d.data();
-          if (!data.punchIn) return;
-          if (data.punchIn < startISO || data.punchIn >= endISO) return;
-          const duration = (data.punchIn && data.punchOut) ? (new Date(data.punchOut).getTime() - new Date(data.punchIn).getTime()) : 0;
-          arr.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
+          const pinMs = this.getTimeMs(data.punchIn);
+          if (!pinMs) return;
+          if (pinMs < startMs || pinMs >= endMs) return;
+            const poutMs = this.getTimeMs(data.punchOut);
+            const duration = (pinMs && poutMs) ? Math.max(0, poutMs - pinMs) : 0;
+            results.push({ ...(data as PunchRecord), id: d.id, durationMs: duration });
         });
-        arr.sort((a,b)=> (a.punchIn||'').localeCompare(b.punchIn||''));
-        return arr;
-      } catch { return []; }
+      } catch { /* swallow */ }
     }
+    // Final sort ascending by punchIn
+    results.sort((a,b)=> (this.getTimeMs(a.punchIn)||0) - (this.getTimeMs(b.punchIn)||0));
+    return results;
+  }
+
+  /** Quick scan to see if legacy embedded base64 image fields still exist for this user. */
+  async hasLegacyEmbeddedImages(sampleLimit = 25): Promise<boolean> {
+    const user = this.auth.currentUser; if (!user) return false;
+    const colRef = collection(this.firestore, 'punches');
+    const snap = await getDocs(query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(sampleLimit)));
+    let legacy = false;
+    snap.forEach(d => {
+      if (legacy) return;
+      const data: any = d.data();
+      if (data.punchInPhotoDataUrl || data.punchOutPhotoDataUrl) legacy = true;
+      if (Array.isArray(data.checkpoints)) {
+        if (data.checkpoints.some((c:any) => c.photoDataUrl)) legacy = true;
+      }
+    });
+    return legacy;
+  }
+
+  /** Migrates legacy embedded base64 image fields to Storage for current user. */
+  async migrateLegacyImagesForCurrentUser(batchLimit = 40): Promise<{ processed:number; updated:number; uploads:number; errors:number }> {
+    const user = this.auth.currentUser; if (!user) return { processed:0, updated:0, uploads:0, errors:0 };
+    const colRef = collection(this.firestore, 'punches');
+    const snap = await getDocs(query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(batchLimit)));
+    let processed=0, updated=0, uploads=0, errors=0;
+    for (const d of snap.docs) {
+      processed++;
+      const data: any = d.data();
+      let changed = false;
+      const updatePayload: any = { updatedAt: serverTimestamp() };
+      // punchIn image
+      if (data.punchInPhotoDataUrl && !data.punchInPhotoPath) {
+        try {
+          const up = await this.uploadDataUrl(`punches/${user.uid}/${d.id}_migr_in.jpg`, data.punchInPhotoDataUrl);
+          updatePayload.punchInPhotoPath = up.path;
+          if (up.url) updatePayload.punchInPhotoUrl = up.url;
+          updatePayload.punchInPhotoDataUrl = deleteField();
+          changed = true; uploads++;
+        } catch { errors++; }
+      }
+      // punchOut image
+      if (data.punchOutPhotoDataUrl && !data.punchOutPhotoPath) {
+        try {
+          const up = await this.uploadDataUrl(`punches/${user.uid}/${d.id}_migr_out.jpg`, data.punchOutPhotoDataUrl);
+          updatePayload.punchOutPhotoPath = up.path;
+            if (up.url) updatePayload.punchOutPhotoUrl = up.url;
+          updatePayload.punchOutPhotoDataUrl = deleteField();
+          changed = true; uploads++;
+        } catch { errors++; }
+      }
+      // checkpoints
+      if (Array.isArray(data.checkpoints)) {
+        let cpChanged = false;
+        const newCps = data.checkpoints.map((c:any, idx:number) => {
+          if (c.photoDataUrl && !c.photoPath) {
+            cpChanged = true;
+            return { ...c, _legacyIndex: idx };
+          }
+          return c;
+        });
+        if (cpChanged) {
+          for (let i=0;i<newCps.length;i++) {
+            const cp = newCps[i];
+            if (cp.photoDataUrl && !cp.photoPath) {
+              try {
+                const up = await this.uploadDataUrl(`punches/${user.uid}/${d.id}/checkpoints/${i}_migr_cp.jpg`, cp.photoDataUrl);
+                cp.photoPath = up.path; if (up.url) cp.photoUrl = up.url; delete cp.photoDataUrl; uploads++;
+              } catch { errors++; }
+            }
+          }
+          updatePayload.checkpoints = newCps;
+          changed = true;
+        }
+      }
+      if (changed) {
+        try { await updateDoc(doc(this.firestore, 'punches', d.id), updatePayload); updated++; } catch { errors++; }
+      }
+    }
+    return { processed, updated, uploads, errors };
   }
 }

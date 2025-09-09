@@ -1,89 +1,156 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Punch Time</ion-title>
-    <ion-buttons slot="end">
-      <ion-button size="small" (click)="logout()">Logout</ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
+<ion-content class="page-animate">
 
-<ion-content class="ion-padding">
-  <ion-card>
-    <ion-card-header>
-      <ion-card-title>{{ punchedIn ? 'Currently Punched In' : 'Ready to Punch In' }}</ion-card-title>
-    </ion-card-header>
-    
-    <ion-card-content>
-      <div *ngIf="punchedIn && elapsedDisplay()" class="elapsed">
-        <ion-text color="medium">Elapsed: {{ elapsedDisplay() }}</ion-text>
-      </div>
-      <div *ngIf="message()" class="msg"> <ion-text>{{ message() }}</ion-text></div>
-      <ion-button expand="block" color="primary" (click)="punchIn()" *ngIf="!punchedIn" [disabled]="loading()">
-        <ng-container *ngIf="!loading(); else inLoad">Punch In</ng-container>
-      </ion-button>
-  <ion-button expand="block" color="danger" (click)="punchOut()" *ngIf="punchedIn" [disabled]="loading()">
-        <ng-container *ngIf="!loading(); else outLoad">Punch Out</ng-container>
-      </ion-button>
-      <ng-template #inLoad><ion-spinner name="crescent"></ion-spinner></ng-template>
-      <ng-template #outLoad><ion-spinner name="crescent"></ion-spinner></ng-template>
-    </ion-card-content>
-  </ion-card>
+  <div class="dashboard-grid">
 
-  <ion-card>
-    <ion-card-header>
-      <ion-card-title>Today</ion-card-title>
-    </ion-card-header>
-    <ion-card-content>
-  <ion-text>Total Worked: {{ formatHm(companyWorkedTodayMs()) }} ({{ (companyWorkedTodayMs()/3600000) | number:'1.2-2' }} hrs)</ion-text>
-      <div *ngIf="punchedIn && activeStartTime()" style="margin-top:6px;">
-        <ion-text color="success">Active since {{ activeStartTime() }} ({{ elapsedDisplay() }})</ion-text>
-      </div>
-    </ion-card-content>
-  </ion-card>
+    <!-- Accessibility live region for punch status updates -->
+    <div aria-live="polite" class="visually-hidden" id="punch-status-announcer">
+      {{ punchedIn ? 'Sesi kerja aktif bermula' : 'Sesi kerja ditamatkan' }}
+    </div>
 
-  <ion-card>
-    <ion-card-header>
-      <ion-card-title>My Punches (Today)</ion-card-title>
-      <ion-card-subtitle>Filtered from company list</ion-card-subtitle>
-    </ion-card-header>
-    <ion-card-content>
-      <div *ngIf="!myCompanyTodayPunches().length" class="ion-text-center" style="margin-bottom:8px;">
-        <ion-text color="medium">No punches yet today.</ion-text>
-      </div>
-      <ion-list lines="none">
-        <ion-item *ngFor="let r of myCompanyTodayPunches()">
-          <ion-label class="ion-text-wrap">
-            <h3>
-              {{ r.staffId || r.email || (r.userId | slice:0:6) }}
-              <ion-badge *ngIf="r.active" color="success" style="margin-left:6px">Active</ion-badge>
-            </h3>
-            <p>
-              In: {{ r.punchIn?.toDate ? (r.punchIn.toDate() | date:'shortTime') : (r.punchIn | date:'shortTime') }}
-              &nbsp;–&nbsp;
-              Out:
-              <ng-container *ngIf="r.punchOut; else activeOut">
-                {{ r.punchOut?.toDate ? (r.punchOut.toDate() | date:'shortTime') : (r.punchOut | date:'shortTime') }}
-              </ng-container>
-              <ng-template #activeOut><strong>—</strong></ng-template>
-            </p>
-            <p>Duration: {{ formatMs(r.durationMs) }}</p>
-          </ion-label>
-        </ion-item>
-      </ion-list>
-    </ion-card-content>
-  </ion-card>
+    <!-- Profile + Primary Action Card -->
+    <ion-card class="punch-card pastel-card elevate">
+      <ion-card-header class="punch-header pastel-card-header">
+        @if (userProfile()) { <div class="profile-row">
+          <div class="avatar avatar-circle"
+            [attr.data-initials]="(userProfile().staffId || userProfile().email || '?') | slice:0:2"></div>
+          <div class="meta">
+            <h2 class="title">{{ (userProfile()?.name) || (userProfile()?.staffId) || (userProfile()?.email) ||
+              'Pengguna' }}</h2>
+            @if (userProfile()) { <p class="sub">
+              <strong>{{ userProfile().staffId }}</strong>
+              <span class="dot">•</span>
+              {{ userProfile().email }}
+            </p> }
+          </div>
+          <div class="state-chip" [class.active]="punchedIn" [class.idle]="!punchedIn">{{ punchedIn ? 'AKTIF' : '-'
+            }}</div>
+        </div> } @else { <ion-card-title>{{ (userProfile()?.name) || (userProfile()?.staffId) || (userProfile()?.email)
+          || 'Pengguna' }}</ion-card-title> }
+      </ion-card-header>
+      <ion-card-content>
+        <div class="status-row">
+          @if (punchedIn && elapsedDisplay()) { <div class="elapsed-block elapsed-block--active">
+            <label>Berjalan</label>
+            <span>{{ elapsedDisplay() }}</span>
+          </div> }
 
-  <ion-card *ngIf="offlineTasks() > 0">
-    <ion-card-header>
-      <ion-card-title>Offline Queue</ion-card-title>
-    </ion-card-header>
-    <ion-card-content>
-      <ion-text>{{ offlineTasks() }} pending action(s) will sync when online.</ion-text>
-      <div class="sync-actions">
-        <ion-button size="small" (click)="syncNow()" [disabled]="syncing()">{{ syncing() ? 'Syncing...' : 'Sync Now' }}</ion-button>
-      </div>
-      <ion-text *ngIf="syncResult()">{{ syncResult() }}</ion-text>
-    </ion-card-content>
-  </ion-card>
+        </div>
+        @if (message()) { <div class="msg"> <ion-text color="danger">{{ message() }}</ion-text></div> }
+        <div class="actions actions-transparent">
+          @if (!punchedIn) { <ion-button class="punch-btn" shape="round" fill="solid" color="primary"
+            (click)="punchIn()" [disabled]="loading()">
+            @if (!loading()) { <span>Punch Masuk</span> } @else { <ion-spinner name="crescent"
+              color="light"></ion-spinner> }
+          </ion-button> }
+          @if (punchedIn) { <ion-button class="punch-btn-outline" shape="round" fill="outline" color="danger"
+            (click)="punchOut()" [disabled]="loading()">
+            @if (!loading()) { <span>Punch Tamat</span> } @else { <ion-spinner name="crescent"
+              color="danger"></ion-spinner> }
+          </ion-button> }
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Quick Stats Bar -->
+    <ion-grid fixed>
+      <ion-row>
+        <ion-col>
+          <div class="stats-bar surface elevate" role="group" aria-label="Statistik Harian">
+            <div class="stat-chip">
+              <span class="label">Jumlah Hari Ini</span>
+              <span class="value">{{ formatHm(companyWorkedTodayMs()) }}</span>
+            </div>
+            <div class="stat-chip" *ngIf="punchedIn">
+              <span class="label">Aktif</span>
+              <span class="value">{{ elapsedDisplay() || formatMs(activeDurationMs()) }}</span>
+            </div>
+            <div class="stat-chip">
+              <span class="label">Bil. Sesi</span>
+              <span class="value">{{ myCompanyTodayPunches().length }}</span>
+            </div>
+          </div>
+        </ion-col>
+        <ion-col size="6">
+
+        </ion-col>
+
+      </ion-row>
+    </ion-grid>
+
+    <!-- Detailed Metrics (collapsible responsive two-up) -->
+    <ion-grid class="metrics-grid">
+      <ion-row>
+        @if (openActivePunch()) {
+        <ion-col size="12" sizeMd="6">
+          <ion-card class="surface">
+            <ion-card-header>
+              <ion-card-title>Sesi Aktif</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+              <div class="active-meta">
+                @if (openActivePunch().punchIn) { <ng-container>
+                  <p class="line"><strong>Mula:</strong> {{ openActivePunch().punchIn?.toDate ?
+                    (openActivePunch().punchIn.toDate() | date:'shortTime') : (openActivePunch().punchIn |
+                    date:'shortTime') }}</p>
+                </ng-container> } @else { <ion-skeleton-text animated
+                  style="width:80px;height:16px;"></ion-skeleton-text> }
+                @if (activeDurationMs() !== null) { <ng-container>
+                  <p class="line"><strong>Jumlah Jam:</strong> {{ formatMs(activeDurationMs()) }}</p>
+                </ng-container> } @else { <ion-skeleton-text animated
+                  style="width:60px;height:16px;"></ion-skeleton-text> }
+                @if (punchedIn && activeStartTime()) { <p class="meta-small">Aktif sejak {{ activeStartTime() }}</p> }
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </ion-col>
+        }
+      </ion-row>
+    </ion-grid>
+    <ion-card class="surface">
+            <ion-card-header>
+              <ion-card-title>Hari Ini</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+              @if (companyWorkedTodayMs() !== null) { <ng-container>
+                <p class="line"><strong>Jumlah Bekerja:</strong> {{ formatHm(companyWorkedTodayMs()) }} ({{
+                  (companyWorkedTodayMs()/3600000) | number:'1.1-1' }} jam)</p>
+              </ng-container> } @else { <ion-skeleton-text animated
+                style="width:120px;height:16px;"></ion-skeleton-text> }
+            </ion-card-content>
+          </ion-card>
+    <!-- Sessions Timeline -->
+    <!-- @if (myCompanyTodayPunches().length) { <ion-card class="surface elevate sessions-card">
+      <ion-card-header>
+        <ion-card-title>Rekod Sesi Hari Ini</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list lines="none" class="session-list">
+          <ion-item *ngFor="let r of myCompanyTodayPunches(); let i = index" class="session-item" [class.session-active]="!r.punchOut">
+            <ion-label class="ion-text-wrap">
+              <h3 class="session-title">Sesi {{ i + 1 }} <ion-badge *ngIf="!r.punchOut" color="success">Aktif</ion-badge></h3>
+              <p class="range">{{ r.punchIn?.toDate ? (r.punchIn.toDate() | date:'shortTime') : (r.punchIn | date:'shortTime') }} — @if (r.punchOut) { <ng-container>{{ r.punchOut?.toDate ? (r.punchOut.toDate() | date:'shortTime') : (r.punchOut | date:'shortTime') }}</ng-container> } @else { <strong>—</strong> }</p>
+              <p class="dur">Durasi: {{ formatMs(r.durationMs) }}</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card> } -->
+
+    <!-- Offline Queue -->
+    @if (offlineTasks() > 0) { <ion-card class="surface offline-card elevate">
+      <ion-card-header>
+        <ion-card-title>Luar Talian</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p class="offline-msg">{{ offlineTasks() }} tindakan belum selesai. Akan diselaraskan bila dalam talian.</p>
+        <div class="sync-actions">
+          <ion-button size="small" (click)="syncNow()" [disabled]="syncing()">{{ syncing() ? 'Menyelaras...' :
+            'Segerakan' }}</ion-button>
+          @if (syncResult()) { <ion-text class="result">{{ syncResult() }}</ion-text> }
+        </div>
+      </ion-card-content>
+    </ion-card> }
+
+  </div>
 
 </ion-content>

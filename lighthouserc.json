@@ -1,0 +1,21 @@
+{
+  "ci": {
+    "collect": {
+      "staticDistDir": "./www",
+      "numberOfRuns": 2,
+      "settings": {
+        "formFactor": "mobile",
+        "screenEmulation": { "mobile": true, "width": 360, "height": 640, "deviceScaleFactor": 2 }
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.9 }],
+        "categories:accessibility": ["error", { "minScore": 0.9 }],
+        "uses-text-compression": "warn",
+        "unused-javascript": "warn",
+        "color-contrast": "error"
+      }
+    }
+  }
+}

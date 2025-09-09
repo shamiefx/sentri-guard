@@ -1,9 +1,10 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { enableProdMode } from '@angular/core';
+import { enableProdMode, inject } from '@angular/core';
 import { RouteReuseStrategy, provideRouter, withPreloading, PreloadAllModules } from '@angular/router';
 import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalone';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
+import { PerfService } from './app/metrics/perf.service';
 // Firebase imports (@angular/fire v20)
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
@@ -41,6 +42,10 @@ bootstrapApplication(AppComponent, {
     provideRouter(routes, withPreloading(PreloadAllModules)),
     ...firebaseProviders,
   ]
+}).then(ref => {
+  // Start simple startup trace
+  const perf = ref.injector.get(PerfService);
+  perf.start();
 }).catch(err => console.error(err));
 
 // Register Ionic PWA custom elements (camera, etc.) after app bootstrap.

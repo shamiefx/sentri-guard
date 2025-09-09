@@ -1,71 +1,104 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>Monthly Sessions</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="togglePrev()" fill="clear" size="small">
-        {{ showPrev() ? 'Current Month' : 'Last Month' }}
+
+
+<ion-content [fullscreen]="true" class="page-animate tab3-content ion-padding">
+
+  <div class="header-row">
+    <div class="title-block">
+      <h2 class="heading">Rekod Bulanan</h2>
+      <p class="sub">Ringkasan sesi kerja & durasi</p>
+    </div>
+    <div class="toggle-block">
+      <ion-button size="small" fill="outline" (click)="togglePrev()" class="month-toggle" [disabled]="loading()">
+        @if (!showPrev()) { <span>{{ prevMonthLabel() }}</span> } @else { <span>{{ currentMonthLabel() }}</span> }
       </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
+    </div>
+  </div>
 
-<ion-content [fullscreen]="true" class="ion-padding">
-  @if (loading()) {
-    <div class="center"><ion-spinner name="crescent"></ion-spinner></div>
-  }
-  @if (error()) {
-    <ion-text color="danger">{{ error() }}</ion-text>
-  }
+  @if (loading()) { <div class="loading-panel"><ion-spinner name="crescent"></ion-spinner></div> }
+  @if (error()) { <div class="error-panel"><ion-text color="danger">{{ error() }}</ion-text></div> }
 
+  <!-- Active Month Panel -->
   @if (!showPrev()) {
-    <h2 class="month-label">{{ currentMonthLabel() }}</h2>
-    @if (currentMonthSessions().length > 0) {
-      <div class="grouped">
-        <div *ngFor="let g of currentGrouped()" class="day-group" style="margin-bottom:12px;">
-          <h4 style="margin:0;">{{ g.dateDisplay }} • {{ (g.totalMs/3600000) | number:'1.2-2' }} hrs ({{ formatMs(g.totalMs) }})</h4>
+    <section class="month-section" aria-labelledby="current-month-label">
+      <div class="month-header surface elevate">
+        <div>
+          <h3 id="current-month-label" class="month-title">{{ currentMonthLabel() }}</h3>
+          <p class="metric-line"><strong>{{ (currentTotalClosedMs()/3600000) | number:'1.1-1' }}</strong> jam ditutup ({{ formatMs(currentTotalClosedMs()) }})</p>
+        </div>
+        <div class="stat-chip">
+          <span>{{ currentDailyTotals().length }} hari rekod</span>
         </div>
       </div>
-      <div class="summary">
-        <ion-text>Total Closed Duration: {{ formatMs(currentTotalClosedMs()) }}</ion-text>
-      </div>
-      <div class="daily-totals" style="margin-top:16px;">
-        <h4>Daily Totals</h4>
-        <ion-list lines="none">
-          <ion-item *ngFor="let d of currentDailyTotals()">
-            <ion-label>
-              <strong>{{ d.dateDisplay }}</strong>
-              <p>{{ d.human }} ({{ d.decimal | number:'1.2-2' }} hrs)</p>
-            </ion-label>
-          </ion-item>
-        </ion-list>
-      </div>
-    } @else {
-      <ion-text>No sessions this month.</ion-text>
-    }
-  } @else {
-    <h2 class="month-label">{{ prevMonthLabel() }}</h2>
-    @if (prevMonthSessions().length > 0) {
-      <div class="grouped">
-        <div *ngFor="let g of prevGrouped()" class="day-group" style="margin-bottom:12px;">
-          <h4 style="margin:0;">{{ g.dateDisplay }} • {{ (g.totalMs/3600000) | number:'1.2-2' }} hrs ({{ formatMs(g.totalMs) }})</h4>
+
+      @if (currentGrouped().length) {
+        <div class="days-grid">
+          <div *ngFor="let g of currentGrouped()" class="day-card glass-surface elevate">
+            <div class="day-head">
+              <h4 class="day-date">{{ g.dateDisplay }}</h4>
+              <span class="day-total">{{ formatMs(g.totalMs) }}</span>
+            </div>
+            <ul class="sessions-list">
+              <li *ngFor="let s of g.sessions" class="session-row" [class.active]="!s.punchOut">
+                <span class="dot" aria-hidden="true"></span>
+                <span class="range">
+                  @if (s.punchIn) { {{ s.punchIn?.toDate ? (s.punchIn.toDate() | date:'shortTime') : (s.punchIn | date:'shortTime') }} } -
+                  @if (s.punchOut) { {{ s.punchOut?.toDate ? (s.punchOut.toDate() | date:'shortTime') : (s.punchOut | date:'shortTime') }} } @else { <em>Aktif</em> }
+                </span>
+                <span class="dur">@if (s.punchOut) { {{ formatMs(durationMs(s)) }} } @else { — }</span>
+              </li>
+            </ul>
+          </div>
         </div>
-      </div>
-      <div class="summary">
-        <ion-text>Total Closed Duration: {{ formatMs(prevTotalClosedMs()) }}</ion-text>
-      </div>
-      <div class="daily-totals" style="margin-top:16px;">
-        <h4>Daily Totals</h4>
-        <ion-list lines="none">
-          <ion-item *ngFor="let d of prevDailyTotals()">
-            <ion-label>
-              <strong>{{ d.dateDisplay }}</strong>
-              <p>{{ d.human }} ({{ d.decimal | number:'1.2-2' }} hrs)</p>
-            </ion-label>
-          </ion-item>
-        </ion-list>
-      </div>
-    } @else {
-      <ion-text>No sessions last month.</ion-text>
-    }
+      } @else { <div class="empty"><ion-text>Tiada sesi bulan ini.</ion-text></div> }
+
+    </section>
   }
+
+  <!-- Previous Month Panel -->
+  @if (showPrev()) {
+    <section class="month-section" aria-labelledby="prev-month-label">
+      <div class="month-header surface elevate">
+        <div>
+          <h3 id="prev-month-label" class="month-title">{{ prevMonthLabel() }}</h3>
+          <p class="metric-line"><strong>{{ (prevTotalClosedMs()/3600000) | number:'1.1-1' }}</strong> jam ditutup ({{ formatMs(prevTotalClosedMs()) }})</p>
+        </div>
+        <div class="stat-chip alt">
+          <span>{{ prevDailyTotals().length }} hari rekod</span>
+        </div>
+      </div>
+      @if (prevGrouped().length) {
+        <div class="days-grid">
+          <div *ngFor="let g of prevGrouped()" class="day-card glass-surface elevate">
+            <div class="day-head">
+              <h4 class="day-date">{{ g.dateDisplay }}</h4>
+              <span class="day-total">{{ formatMs(g.totalMs) }}</span>
+            </div>
+            <ul class="sessions-list">
+              <li *ngFor="let s of g.sessions" class="session-row" [class.active]="!s.punchOut">
+                <span class="dot" aria-hidden="true"></span>
+                <span class="range">
+                  @if (s.punchIn) { {{ s.punchIn?.toDate ? (s.punchIn.toDate() | date:'shortTime') : (s.punchIn | date:'shortTime') }} } -
+                  @if (s.punchOut) { {{ s.punchOut?.toDate ? (s.punchOut.toDate() | date:'shortTime') : (s.punchOut | date:'shortTime') }} } @else { <em>Aktif</em> }
+                </span>
+                <span class="dur">@if (s.punchOut) { {{ formatMs(durationMs(s)) }} } @else { — }</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      } @else { <div class="empty"><ion-text>Tiada sesi bulan lepas.</ion-text></div> }
+
+      <div class="daily-totals-card surface">
+        <h4 class="section-sub">Jumlah Harian</h4>
+        <ion-list lines="none">
+          <ion-item *ngFor="let d of prevDailyTotals()" class="daily-row">
+            <ion-label>
+              <strong>{{ d.dateDisplay }}</strong>
+              <p>{{ d.human }} ({{ d.decimal | number:'1.2-2' }} jam)</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </div>
+    </section>
+  }
+
 </ion-content>

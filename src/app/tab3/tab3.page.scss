@@ -1,0 +1,55 @@
+/* Tab3 Modern Monthly Records Styling */
+
+.tab3-content { padding:16px 16px 40px; }
+
+.header-row { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom:18px; }
+.heading { margin:0; font-size:1.55rem; font-weight:700; letter-spacing:.5px; }
+.sub { margin:2px 0 0; font-size:.8rem; color: var(--app-text-muted); }
+
+.month-toggle { --border-radius:18px; font-weight:600; letter-spacing:.4px; }
+
+.month-section { display:flex; flex-direction:column; gap:26px; }
+.month-header { display:flex; align-items:center; justify-content:space-between; gap:26px; padding:18px 20px; border-radius:var(--app-radius-lg); }
+.month-title { margin:0 0 4px; font-size:1.15rem; font-weight:600; letter-spacing:.4px; }
+.metric-line { margin:0; font-size:.75rem; opacity:.85; }
+
+.stat-chip { background: linear-gradient(90deg, var(--app-color-primary) 0%, var(--app-color-primary-accent) 100%); color:#fff; padding:10px 16px; border-radius:30px; font-size:.7rem; font-weight:600; letter-spacing:.5px; display:inline-flex; align-items:center; box-shadow: 0 4px 14px -4px rgba(0,0,0,.45); }
+.stat-chip.alt { background: linear-gradient(90deg, var(--app-color-primary-accent) 0%, var(--app-color-primary) 100%); }
+
+.days-grid { display:grid; gap:18px; }
+@media (min-width: 640px) { .days-grid { grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); } }
+@media (min-width: 1040px) { .days-grid { grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); } }
+
+.day-card { position:relative; padding:14px 14px 12px; border-radius:var(--app-radius-lg); display:flex; flex-direction:column; gap:10px; min-height:140px; }
+.day-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.day-date { margin:0; font-size:.85rem; font-weight:600; letter-spacing:.4px; }
+.day-total { font-size:.65rem; font-weight:600; background:rgba(255,255,255,.14); padding:4px 8px; border-radius:20px; letter-spacing:.5px; }
+
+.sessions-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.session-row { display:flex; align-items:center; gap:8px; font-size:.68rem; background:rgba(255,255,255,0.06); padding:6px 8px; border-radius:10px; backdrop-filter:blur(4px); position:relative; }
+.session-row.active { background: color-mix(in oklab, var(--app-color-primary) 30%, rgba(255,255,255,0.08)); }
+.session-row .dot { width:8px; height:8px; border-radius:50%; background: var(--app-color-primary-accent); box-shadow:0 0 0 2px rgba(255,255,255,0.15); }
+.session-row.active .dot { background: var(--app-color-primary); }
+.session-row .range { flex:1; }
+.session-row .dur { font-weight:600; font-variant-numeric: tabular-nums; }
+
+.daily-totals-card { padding:18px 16px 6px; border-radius:var(--app-radius-lg); box-shadow: var(--app-shadow-sm); }
+.daily-totals-card h4 { margin:0 0 10px; font-size:.9rem; letter-spacing:.4px; }
+ion-item.daily-row { --background: transparent; --min-height:50px; padding:4px 0; }
+ion-item.daily-row + ion-item.daily-row { border-top:1px solid rgba(255,255,255,0.08); }
+ion-item.daily-row ion-label p { font-size:.65rem; opacity:.8; margin-top:2px; }
+
+.empty { padding:20px 10px; font-size:.8rem; opacity:.75; }
+
+.loading-panel, .error-panel { padding:12px 0 4px; }
+
+/* Light mode adjustments */
+@media (prefers-color-scheme: light) {
+	.session-row { background: rgba(0,0,0,0.05); }
+	.session-row.active { background: color-mix(in oklab, var(--app-color-primary) 25%, #ffffff); }
+	.day-total { background: rgba(0,0,0,0.06); }
+	ion-item.daily-row + ion-item.daily-row { border-top:1px solid rgba(0,0,0,0.08); }
+}
+
+/* Reduced motion */
+body.reduce-motion .session-row { transition:none !important; }

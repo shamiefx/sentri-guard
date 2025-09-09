@@ -1,2 +1,117 @@
-// For information on how to create your own theme, please see:
-// http://ionicframework.com/docs/theming/
+// Custom Theme Variables & Design Tokens
+// --------------------------------------
+// Central design tokens used across the application. Extend rather than override ad‑hoc.
+
+:root {
+	/* Brand Palette (Updated) */
+	--app-color-primary: #57A86A; /* green accent */
+	--app-color-primary-accent: #A85795; /* magenta accent */
+	--app-color-primary-fade: #3f7c4d; /* darker variant for depth */
+	--app-color-success: #57A86A; /* unify success */
+	--app-color-danger: #dc2626;
+	--app-color-warning: #f59e0b;
+	--app-color-info: #A85795; /* reuse accent for info highlights */
+
+	/* Semantic Surface / Text (supports light & dark) */
+	--app-bg: #0f172a; /* base background */
+	--app-bg-alt: #111f33;
+	--app-surface: rgba(255,255,255,0.07);
+	--app-surface-alt: rgba(255,255,255,0.12);
+	--app-border-color: rgba(255,255,255,0.16);
+	--app-ring: var(--app-color-primary-accent);
+	--app-text: #f1f5f9;
+	--app-text-muted: #94a3b8;
+	--app-focus-outline: color-mix(in oklab, var(--app-ring) 55%, transparent);
+
+	/* Gradient Tokens */
+	--grad-pastel-card: linear-gradient(135deg,#f1f8f3 0%,#fbf1f7 100%);
+	--grad-pastel-header: linear-gradient(90deg,#57A86A 0%,#A85795 100%);
+	--grad-primary-glow: radial-gradient(circle at 30% 20%,rgba(87,168,106,.45),transparent 70%),linear-gradient(145deg,#1e293b,#0f172a);
+	--grad-hero-primary: linear-gradient(125deg, var(--app-color-primary-fade) 0%, var(--app-color-primary) 55%, var(--app-color-primary-accent) 110%);
+	--grad-header-primary: linear-gradient(90deg, var(--app-color-primary) 0%, var(--app-color-primary-accent) 100%);
+	--grad-header-alt: linear-gradient(90deg, var(--app-color-primary-fade), var(--app-color-primary));
+
+	/* Greys */
+	--app-gray-50:#f8fafc; --app-gray-100:#f1f5f9; --app-gray-200:#e2e8f0; --app-gray-300:#cbd5e1;
+	--app-gray-400:#94a3b8; --app-gray-500:#64748b; --app-gray-600:#475569; --app-gray-700:#334155;
+	--app-gray-800:#1e293b; --app-gray-900:#0f172a;
+
+	/* Elevation & Radii */
+	--app-radius-xs: 6px;
+	--app-radius-sm: 10px;
+	--app-radius: 16px;
+	--app-radius-lg: 22px;
+	--app-shadow-sm: 0 2px 6px -2px rgba(0,0,0,.25);
+	--app-shadow: 0 8px 26px -10px rgba(0,0,0,.5);
+	--app-shadow-hover: 0 14px 40px -12px rgba(0,0,0,.55);
+
+	/* Motion */
+	--app-ease-out: cubic-bezier(.16,.84,.44,1);
+	--app-ease-spring: cubic-bezier(.25,1.25,.5,1);
+	--app-transition: 180ms var(--app-ease-out);
+
+	/* Spacing Scale (t-shirt sizes) */
+	--space-0: 0;
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-8: 32px;
+	--space-10: 40px;
+
+	/* Typography Scale */
+	--font-xs: 11px;
+	--font-sm: 13px;
+	--font-md: 15px;
+	--font-lg: 18px;
+	--font-xl: 22px;
+	--font-2xl: 28px;
+
+	/* Glass Surfaces */
+	--app-glass-bg: rgba(255,255,255,0.07);
+	--app-glass-border: rgba(255,255,255,0.14);
+	--app-glass-blur: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--app-color-primary: #57A86A;
+		--app-color-primary-accent: #A85795;
+		--app-color-primary-fade: #2d5939;
+		--grad-primary-glow: radial-gradient(circle at 30% 20%,rgba(168,87,149,.35),transparent 70%),linear-gradient(145deg,#172332,#0b1118);
+	}
+}
+
+/* Utility Classes */
+.glass-surface { background: var(--app-glass-bg); backdrop-filter: blur(var(--app-glass-blur)); border:1px solid var(--app-glass-border); border-radius: var(--app-radius-lg); }
+.elevate { box-shadow: var(--app-shadow); transition: box-shadow var(--app-transition), transform var(--app-transition); }
+.elevate:hover { box-shadow: var(--app-shadow-hover); transform: translateY(-2px); }
+.text-fade { color: var(--app-gray-400); }
+.text-accent { color: var(--app-color-primary-accent); }
+.tag { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; font-size:.65rem; line-height:1; border-radius:30px; background:var(--app-gray-700); color:var(--app-gray-200); letter-spacing:.5px; }
+
+/* New utility helpers */
+.container-page { width:100%; max-width:1000px; margin:0 auto; padding: var(--space-4) var(--space-4) var(--space-8); }
+.gradient-bg-primary { background: var(--grad-primary-glow); }
+.focus-ring { outline:2px solid var(--app-focus-outline); outline-offset:2px; }
+.visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+.pastel-card { background: var(--grad-pastel-card); }
+.pastel-card-header { background: var(--grad-pastel-header); color:#fff; }
+.surface { background: var(--app-surface); backdrop-filter: blur(var(--app-glass-blur)); border:1px solid var(--app-border-color); border-radius: var(--app-radius-lg); }
+.surface-alt { background: var(--app-surface-alt); }
+.text-muted { color: var(--app-text-muted); }
+
+/* Accessible minimum tap target suggestion */
+.tap-target { min-height:48px; min-width:48px; display:inline-flex; align-items:center; justify-content:center; }
+
+/* Page entering animation helper */
+.page-animate { animation: fadeSlide .55s var(--app-ease-out) both; }
+@keyframes fadeSlide { from { opacity:0; transform: translateY(14px); } to { opacity:1; transform:none; } }
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+	.page-animate { animation:none; }
+	.elevate, .elevate:hover { transition:none; }
+}

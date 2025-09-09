@@ -1,14 +1,14 @@
-<ion-content class="auth-content ion-padding" fullscreen>
+<ion-content class="auth-content ion-padding page-animate" fullscreen>
   <div class="brand fade-in">
     <h1>Sentri Guard</h1>
-    <p class="tagline">Secure Attendance</p>
+    <p class="tagline">Kehadiran Selamat</p>
   </div>
 
   <div class="auth-card pop-in" [class.blur]="loading()">
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <!-- Email -->
       <div class="field" [class.is-invalid]="f.email.touched && f.email.invalid">
-        <label class="sr-only" for="email">Email</label>
+  <label class="sr-only" for="email">Emel</label>
         <div class="input-wrap">
           <ion-icon name="mail-outline" aria-hidden="true"></ion-icon>
           <ion-input
@@ -20,19 +20,19 @@
             autocapitalize="off"
             autocorrect="off"
             spellcheck="false"
-            placeholder="you@company.com"
+            placeholder="anda@syarikat.com"
             [clearInput]="true"
             [debounce]="150">
           </ion-input>
         </div>
         <ion-note color="danger" *ngIf="f.email.touched && f.email.invalid">
-          Valid email required
+          Emel sah diperlukan
         </ion-note>
       </div>
 
       <!-- Password -->
       <div class="field" [class.is-invalid]="f.password.touched && f.password.invalid">
-        <label class="sr-only" for="password">Password</label>
+  <label class="sr-only" for="password">Kata Laluan</label>
         <div class="input-wrap">
           <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
           <ion-input
@@ -43,7 +43,7 @@
             autocapitalize="off"
             autocorrect="off"
             spellcheck="false"
-            placeholder="Your password"
+            placeholder="Kata laluan anda"
             enterkeyhint="done">
           </ion-input>
 
@@ -54,12 +54,12 @@
             class="icon-button"
             (click)="togglePwd()"
             [attr.aria-pressed]="showPwd"
-            [attr.aria-label]="showPwd ? 'Hide password' : 'Show password'">
+            [attr.aria-label]="showPwd ? 'Sembunyi kata laluan' : 'Tunjuk kata laluan'">
             <ion-icon [name]="showPwd ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
           </ion-button>
         </div>
         <ion-note color="danger" *ngIf="f.password.touched && f.password.invalid">
-          Min 6 characters
+          Minimum 6 aksara
         </ion-note>
       </div>
 
@@ -70,12 +70,12 @@
           type="submit"
           expand="block"
           [disabled]="loading() || form.invalid">
-          @if (!loading()) { Login } @else { <ion-spinner name="crescent" aria-label="Signing in"></ion-spinner> }
+          @if (!loading()) { Log Masuk } @else { <ion-spinner name="crescent" aria-label="Sedang log masuk"></ion-spinner> }
         </ion-button>
 
         <div class="links">
-          <button type="button" class="link-btn" (click)="goToRegister()">Create account</button>
-          <button type="button" class="link-btn" (click)="goToReset()">Forgot password?</button>
+          <button type="button" class="link-btn" (click)="goToRegister()">Daftar akaun</button>
+          <button type="button" class="link-btn" (click)="goToReset()">Lupa kata laluan?</button>
         </div>
       </div>
     </form>

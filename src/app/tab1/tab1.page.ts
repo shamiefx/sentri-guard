@@ -1,7 +1,8 @@
 import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge } from '@ionic/angular/standalone';
+import { IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge, IonGrid, IonCol, IonRow, IonSkeletonText, IonIcon } from '@ionic/angular/standalone';
 import { PunchService } from '../services/punch.service';
+import { PerfService } from '../metrics/perf.service';
 import { AuthService } from '../services/auth.service';
 import { OfflineQueueService } from '../services/offline-queue.service';
 import { CompanyService } from '../services/company.service';
@@ -14,7 +15,7 @@ import { filter, Subject, takeUntil, interval, switchMap, from } from 'rxjs';
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
   styleUrls: ['tab1.page.scss'],
-  imports: [CommonModule, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge],
+  imports: [CommonModule, IonContent, IonButton, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge, IonGrid, IonCol, IonRow, IonSkeletonText, IonIcon],
 })
 export class Tab1Page implements OnInit, OnDestroy {
   private activeRecordId = signal<string | null>(null);
@@ -25,17 +26,82 @@ export class Tab1Page implements OnInit, OnDestroy {
   private timerHandle: any = null;
   private destroyed$ = new Subject<void>();
   todayTotalMs = signal(0);
+  // Dynamic computed daily total including active session live updates
+  workedTodayMs = computed(() => {
+    const sessions = this.todaySessions();
+    let total = 0;
+    sessions.forEach(s => {
+      const start = s.punchIn?.toDate ? s.punchIn.toDate().getTime() : (s.punchIn ? new Date(s.punchIn).getTime() : null);
+      if (!start) return;
+      if (s.punchOut) {
+        const end = s.punchOut?.toDate ? s.punchOut.toDate().getTime() : new Date(s.punchOut).getTime();
+        total += Math.max(0, end - start);
+      } else {
+        // active session use current durationMs if present to avoid double calc jitter
+        if (typeof s.durationMs === 'number' && s.durationMs > 0) {
+          total += s.durationMs;
+        } else {
+          total += Date.now() - start;
+        }
+      }
+    });
+    return total;
+  });
+
+  // Alternate total based on company punches filtered to current user (covers any missed sessions)
+  companyWorkedTodayMs = computed(() => {
+    const list = this.myCompanyTodayPunches();
+    if (!list.length) return this.workedTodayMs(); // fallback
+    let total = 0;
+    list.forEach(r => {
+      const start = r.punchIn?.toDate ? r.punchIn.toDate().getTime() : (typeof r.punchIn === 'string' ? Date.parse(r.punchIn) : r.punchIn);
+      if (!start || isNaN(start)) return;
+      if (r.punchOut) {
+        const end = r.punchOut?.toDate ? r.punchOut.toDate().getTime() : (typeof r.punchOut === 'string' ? Date.parse(r.punchOut) : r.punchOut);
+        if (end && !isNaN(end) && end > start) total += (end - start);
+      } else {
+        total += Math.max(0, Date.now() - start);
+      }
+    });
+    return total;
+  });
+
+  activeStartTime = computed(() => {
+    if (!this.punchInStartISO) return null;
+    try {
+      return new Date(this.punchInStartISO).toLocaleTimeString(undefined,{ hour:'2-digit', minute:'2-digit' });
+    } catch { return null; }
+  });
   history = signal<any[]>([]);
   offlineTasks = signal(0);
   todaySessions = signal<any[]>([]);
   companyTodayPunches = signal<any[]>([]);
   // Current authenticated user id (tracked for filtering)
   userId = signal<string | null>(null);
+  userProfile = signal<any | null>(null);
   // Filtered list: only this user's punches from companyTodayPunches
   myCompanyTodayPunches = computed(() => {
     const uid = this.userId();
     if (!uid) return [];
     return this.companyTodayPunches().filter(r => r.userId === uid);
+  });
+  // Currently open (no punchOut) record for this user (first found)
+  openActivePunch = computed(() => {
+    return this.myCompanyTodayPunches().find(r => !r.punchOut) || null;
+  });
+  // Live duration for active open punch (fallback to existing durationMs then dynamic)
+  activeDurationMs = computed(() => {
+    const rec: any = this.openActivePunch();
+    if (!rec) return 0;
+    const start = rec.punchIn?.toDate ? rec.punchIn.toDate().getTime() : (rec.punchIn ? Date.parse(rec.punchIn) : null);
+    if (!start || isNaN(start)) return 0;
+    if (rec.punchOut) {
+      const end = rec.punchOut?.toDate ? rec.punchOut.toDate().getTime() : Date.parse(rec.punchOut);
+      return end && end > start ? end - start : 0;
+    }
+    // prefer rec.durationMs if provided to reduce jitter; otherwise compute now-start
+    if (typeof rec.durationMs === 'number' && rec.durationMs > 0) return rec.durationMs;
+    return Date.now() - start;
   });
   fullHistory = signal<any[]>([]);
   fullHistoryCursor = signal<string | null>(null);
@@ -51,25 +117,44 @@ export class Tab1Page implements OnInit, OnDestroy {
   private authService: AuthService,
   private router: Router,
   private offlineQueue: OfflineQueueService,
+  private perf: PerfService,
   ) {}
 
   get punchedIn() { return this.activeRecordId() !== null; }
+
+  private perfStopped = false;
+  private tryStopPerf() {
+    if (this.perfStopped) return;
+    // Criteria: user profile loaded & at least attempted loading company punches
+    if (this.userProfile() && this.companyTodayPunches()) {
+      this.perf.stop('startup_to_dashboard');
+      this.perfStopped = true;
+    }
+  }
+
+  toggleReducedMotion() {
+    const cls = 'reduce-motion';
+    document.body.classList.toggle(cls);
+  }
 
   async ngOnInit() {
     // Zone-aware auth state observable (prevents outside injection context warnings)
     authState(this.auth).pipe(takeUntil(this.destroyed$)).subscribe(async user => {
       if (user) {
         this.userId.set(user.uid);
+  await this.loadUserProfile(user.uid);
         await this.restoreSessionFull();
         await this.refreshTodayTotal();
         await this.refreshTodaySessions();
         await this.refreshCompanyTodayPunches(); // ensure My Punches loads immediately
+  this.tryStopPerf();
       } else {
         this.userId.set(null);
         this.activeRecordId.set(null);
         this.clearElapsedTimer();
         this.message.set(null);
         this.companyTodayPunches.set([]);
+  this.userProfile.set(null);
       }
     });
 
@@ -141,7 +226,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   const { companyName, punchInISO } = await this.resolveCompanyContext(id);
   this.punchInStartISO = punchInISO;
   this.startElapsedTimer();
-  this.message.set(companyName ? `You are punche attendance at ${companyName}` : 'You are punche attendance');
+  this.setActiveStartMessage(companyName || undefined);
     } catch (e: any) {
       this.message.set(e.message || 'Punch in failed');
       if (e.message && e.message.includes('Failed to fetch')) {
@@ -220,7 +305,21 @@ export class Tab1Page implements OnInit, OnDestroy {
         const punchSnap = await getDoc(doc(this.firestore, 'punches', punchId));
         if (punchSnap.exists()) {
           const pData: any = punchSnap.data();
-            punchInISO = pData?.punchIn || null;
+          const raw = pData?.punchIn;
+          if (raw) {
+            try {
+              if (typeof raw?.toDate === 'function') {
+                punchInISO = raw.toDate().toISOString();
+              } else if (raw instanceof Date) {
+                punchInISO = raw.toISOString();
+              } else if (typeof raw === 'string') {
+                punchInISO = raw; // legacy ISO
+              }
+            } catch {
+              // ignore conversion errors
+              punchInISO = null;
+            }
+          }
         }
       }
       return { companyName, punchInISO };
@@ -267,7 +366,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       const { companyName, punchInISO } = await this.resolveCompanyContext(openId);
       this.punchInStartISO = punchInISO;
       this.startElapsedTimer();
-      this.message.set(companyName ? `You are punche attendance at ${companyName}` : 'You are punche attendance');
+  this.setActiveStartMessage(companyName || undefined);
     }
   }
 
@@ -279,7 +378,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       const { companyName, punchInISO } = await this.resolveCompanyContext(openId);
       this.punchInStartISO = punchInISO;
       this.startElapsedTimer();
-      this.message.set(companyName ? `You are punche attendance at ${companyName}` : 'You are punche attendance');
+  this.setActiveStartMessage(companyName || undefined);
     } catch (e:any) {
       // eslint-disable-next-line no-console
       console.warn('Session restore failed', e.message);
@@ -298,6 +397,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       // Initial load fallback (immediate)
       const sessions = await this.punchService.getTodaySessions();
       this.todaySessions.set(sessions);
+  this.tryStopPerf();
       // Start real-time subscription (only once)
       if (!(this as any)._todayWatcherStarted) {
         (this as any)._todayWatcherStarted = true;
@@ -306,6 +406,7 @@ export class Tab1Page implements OnInit, OnDestroy {
           .subscribe(list => {
             // Keep current active session elapsed timer separate; durations will be recalculated each emission
             this.todaySessions.set(list);
+    this.tryStopPerf();
           });
       }
     } catch { /* ignore */ }
@@ -315,6 +416,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     try {
       const list = await this.punchService.getTodayCompanyPunches();
       this.companyTodayPunches.set(list);
+  this.tryStopPerf();
     } catch { /* ignore */ }
   }
 
@@ -348,6 +450,12 @@ export class Tab1Page implements OnInit, OnDestroy {
     return `${pad(h)}:${pad(m)}:${pad(s)}`;
   }
 
+  formatHm(ms: number): string {
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return `${h}h ${m}m`;
+  }
+
   private queueOffline(type: 'punchIn'|'punchOut', payload: any) {
     this.offlineQueue.enqueue({ type, payload });
     this.refreshOfflineCount();
@@ -355,6 +463,23 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   private refreshOfflineCount() {
     this.offlineTasks.set(this.offlineQueue.peekAll().length);
+  }
+
+  private async loadUserProfile(uid: string) {
+    try {
+      const snap = await getDoc(doc(this.firestore, 'users', uid));
+      if (snap.exists()) {
+        this.userProfile.set(snap.data());
+      } else {
+        this.userProfile.set(null);
+      }
+    } catch {
+      this.userProfile.set(null);
+    }
+  }
+
+  private setActiveStartMessage(companyName?: string) {
+    this.message.set('Syif bermula. Rondaan awal, periksa akses & pintu, pantau CCTV, periksa store, catat pemerhatian.');
   }
 
   ngOnDestroy(): void {

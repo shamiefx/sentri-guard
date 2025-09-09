@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Firestore, doc, getDoc, collection, query, where, limit, getDocs } from '@angular/fire/firestore';
+import { collection as col, getDocs as gDocs } from '@angular/fire/firestore';
 
 export interface Company {
   id: string;
@@ -38,5 +39,30 @@ export class CompanyService {
       return { id: d.id, companyCode: data.companyCode || d.id, ...data };
     }
     return null;
+  }
+
+  /**
+   * Diagnostic: scans all users and returns an array of issues where:
+   * - user has no companyCode
+   * - user references a companyCode that does not resolve to a company document
+   * NOTE: This is a potentially expensive operation; use sparingly (e.g., admin screen).
+   */
+  async validateUserCompanyLinks(): Promise<{ ok: boolean; issues: Array<{ userId: string; staffId?: string; companyCode?: string; problem: string }> }> {
+    const issues: Array<{ userId: string; staffId?: string; companyCode?: string; problem: string }> = [];
+    const usersCol = collection(this.firestore, 'users');
+    const snaps = await getDocs(usersCol);
+    for (const docSnap of snaps.docs) {
+      const data: any = docSnap.data();
+      const code = (data?.companyCode || '').trim();
+      if (!code) {
+        issues.push({ userId: docSnap.id, staffId: data?.staffId, problem: 'missing companyCode' });
+        continue;
+      }
+      const company = await this.getCompanyByCode(code);
+      if (!company) {
+        issues.push({ userId: docSnap.id, staffId: data?.staffId, companyCode: code, problem: 'companyCode not found' });
+      }
+    }
+    return { ok: issues.length === 0, issues };
   }
 }

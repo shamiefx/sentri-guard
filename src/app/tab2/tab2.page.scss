@@ -1,0 +1,155 @@
+/* Enhanced styling for Tab 2 leveraging global design tokens */
+
+ion-content {
+	--padding-bottom: 32px;
+}
+
+/* Layout wrapper */
+.tab2-layout { --padding-start: 16px; --padding-end:16px; }
+
+/* Hero card styling aligned with Tab1 gradients */
+.session-hero {
+	background: var(--grad-hero-primary);
+	color:#fff;
+	border-radius: var(--app-radius-lg);
+	box-shadow: var(--app-shadow);
+	position:relative;
+	overflow:hidden;
+}
+.session-hero.closed { filter: saturate(.75); }
+.hero-header { background:transparent; }
+.hero-row { display:flex; align-items:flex-start; gap:18px; }
+.hero-meta { flex:1; }
+.hero-title { margin:0; font-size:20px; font-weight:600; letter-spacing:.5px; }
+.hero-sub { margin:4px 0 0; font-size:12px; opacity:.85; }
+
+.state-chip { font-size:11px; font-weight:600; padding:6px 12px; background:rgba(255,255,255,.18); border-radius:30px; letter-spacing:.5px; backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.25); }
+.state-chip.done { background:rgba(22,163,74,.55); }
+
+.hero-content { padding-top:4px; }
+.loading-row, .error-row { display:flex; align-items:center; gap:8px; font-size:13px; }
+
+.hero-actions { margin-top:10px; }
+.closed-msg { margin-top:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.history-toggle { --border-radius:24px; }
+
+/* Checkpoints card */
+.checkpoints-card { margin-top:20px; }
+.checkpoints-card ion-card-header { background: var(--grad-header-primary); color:#fff; }
+.checkpoints-card ion-card-title { font-size:16px; font-weight:600; letter-spacing:.4px; }
+.checkpoints-card .count { font-weight:400; opacity:.85; }
+
+/* History & detail */
+.history-card, .detail-card { margin-top:20px; }
+.history-card ion-card-header, .detail-card ion-card-header { background: var(--grad-header-alt); color:#fff; }
+.detail-card { backdrop-filter: blur(6px); background: linear-gradient(140deg, var(--app-gray-700), var(--app-gray-800)); }
+
+/* Remove inline image styling to unify */
+.photo-wrapper img,
+.detail-card img { max-width:140px; border-radius:10px; margin-top:6px; box-shadow: 0 3px 10px -3px rgba(0,0,0,.55); }
+
+/* Typography inside lists */
+ion-item h3 { font-size:.8rem; font-weight:600; letter-spacing:.4px; color: var(--app-color-primary-accent); }
+ion-item p { font-size:.65rem; color: var(--app-gray-300); margin-top:2px; }
+
+/* Buttons */
+.checkpoint-btn { --border-radius:28px; }
+
+@media (prefers-color-scheme: light) {
+	.detail-card { background: linear-gradient(135deg, var(--app-gray-200), var(--app-gray-300)); }
+	ion-item p { color: var(--app-gray-500); }
+}
+
+ion-card {
+	border-radius: var(--app-radius-lg);
+	overflow: hidden;
+	position: relative;
+	background: linear-gradient(135deg, var(--app-gray-800), var(--app-gray-700));
+	color: var(--app-gray-100);
+	box-shadow: var(--app-shadow-sm);
+	transition: transform var(--app-transition), box-shadow var(--app-transition);
+}
+ion-card:hover { box-shadow: var(--app-shadow-hover); transform: translateY(-3px); }
+
+/* Actions spacing */
+.top-gap { margin-top: 12px; }
+
+ion-card-header {
+	background: var(--grad-header-primary);
+	color: #fff;
+	padding: 14px 18px;
+}
+ion-card-title { font-size: 1.05rem; font-weight: 600; letter-spacing: .5px; }
+
+/* Active session state */
+.actions ion-button:not([fill="outline"]) {
+	--background: linear-gradient(90deg, var(--app-color-primary) 0%, var(--app-color-info) 100%);
+	--box-shadow: 0 4px 12px -2px rgba(0,0,0,.4);
+	font-weight: 600;
+}
+
+ion-badge[color="success"], ion-badge[color="warning"] {
+	font-weight: 600;
+	letter-spacing: .5px;
+	padding: 4px 8px;
+	border-radius: 12px;
+}
+
+/* Checkpoint list */
+ion-list { --background: transparent; }
+ion-item { --background: var(--app-gray-700); margin-bottom: 6px; border-radius: var(--app-radius-sm); }
+ion-item.no-checkpoints { opacity: .55; pointer-events: none; }
+ion-item h3 { font-size: .85rem; font-weight: 600; letter-spacing: .4px; color: var(--app-color-primary-accent); }
+ion-item p { font-size: .7rem; color: var(--app-gray-300); margin-top: 2px; }
+
+/* Photo preview */
+.photo-wrapper { margin-top: 4px; }
+.photo-wrapper img { border:1px solid rgba(255,255,255,.08); box-shadow: 0 2px 6px -2px rgba(0,0,0,.5); }
+
+/* History section distinctions */
+ion-card-title + .tagline { font-size: .6rem; text-transform: uppercase; color: var(--app-gray-300); letter-spacing: 1.2px; margin-top: 2px; }
+
+/* Detail section */
+ion-card:has(.detail-card) { backdrop-filter: blur(var(--app-glass-blur)); }
+ion-card.detail { background: linear-gradient(145deg, var(--app-gray-700) 0%, var(--app-gray-800) 100%); }
+
+/* Utility fade text */
+.muted { color: var(--app-gray-400); font-size: .7rem; }
+
+/* Enhanced checkpoint button */
+.checkpoint-btn {
+	--background: linear-gradient(100deg, var(--app-color-primary) 0%, var(--app-color-primary-accent) 55%, var(--app-color-primary-accent) 100%);
+	--background-activated: linear-gradient(100deg, var(--app-color-primary-fade) 0%, var(--app-color-primary-accent) 75%);
+	--border-radius: 40px;
+	font-weight: 600;
+	letter-spacing: .4px;
+	box-shadow: 0 4px 14px -4px rgba(0,0,0,.45);
+	min-height: 42px;
+	padding-inline: 18px;
+}
+.checkpoint-btn ion-icon { font-size: 1.1rem; }
+.checkpoint-btn:disabled { opacity: .55; box-shadow: none; }
+.checkpoint-btn:focus-visible { outline: 2px solid var(--app-color-info); outline-offset: 2px; }
+
+/* Responsive tweaks */
+@media (min-width: 640px) {
+	ion-card { margin-inline: auto; max-width: 760px; }
+}
+
+@media (prefers-color-scheme: light) {
+	ion-card { background: linear-gradient(135deg, var(--app-gray-100), var(--app-gray-200)); color: var(--app-gray-800); }
+	ion-item { --background: #fff; }
+	ion-item h3 { color: var(--app-color-primary-fade); }
+	ion-item p { color: var(--app-gray-500); }
+}
+
+/* Standardized checkpoint photo */
+.checkpoint-photo { max-width:140px; border-radius:10px; margin-top:6px; border:1px solid rgba(255,255,255,.1); box-shadow: 0 3px 10px -3px rgba(0,0,0,.55); }
+
+/* Large adaptive layout: hero + checkpoint list side by side */
+@media (min-width: 980px) {
+	ion-content > :first-child { display:grid; grid-template-columns: 1fr 1fr; gap:26px; }
+}
+
+/* Reduced motion compliance */
+body.reduce-motion * { animation: none !important; transition: none !important; }

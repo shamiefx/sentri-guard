@@ -3,6 +3,7 @@ import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signO
 import { Firestore, collection, doc, serverTimestamp, setDoc, query, where, getDocs, limit } from '@angular/fire/firestore';
 
 export interface RegisterPayload {
+  name: string;
   staffId: string;
   email: string;
   password: string;
@@ -10,6 +11,7 @@ export interface RegisterPayload {
 }
 
 export interface AppUserProfile {
+  name: string;
   staffId: string;
   email: string;
   companyCode: string;
@@ -26,7 +28,7 @@ export class AuthService {
    * Enforces unique staffId.
    */
   async register(payload: RegisterPayload): Promise<UserCredential> {
-    const { staffId, email, password, companyCode } = payload;
+  const { name, staffId, email, password, companyCode } = payload;
 
     // Enforce unique staffId
     const staffQuery = query(
@@ -42,6 +44,7 @@ export class AuthService {
     const cred = await createUserWithEmailAndPassword(this.auth, email, password);
     const userDoc = doc(this.firestore, 'users', cred.user.uid);
     const profile: AppUserProfile = {
+      name,
       staffId,
       email,
       companyCode,

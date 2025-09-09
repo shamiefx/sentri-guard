@@ -1,38 +1,38 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Checkpoints</ion-title>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content class="ion-padding">
-  <ion-card>
-    <ion-card-header>
-      <ion-card-title>Active Session</ion-card-title>
-    </ion-card-header>
-    <ion-card-content>
-      <div *ngIf="!activeSessionId() && !loading()">No recent session. Start one in Tab 1.</div>
-      <div *ngIf="loading()"><ion-spinner name="crescent"></ion-spinner> Loading...</div>
-      <div *ngIf="error()"><ion-text color="danger">{{ error() }}</ion-text></div>
-      <div *ngIf="activeSessionId()">
-        <ion-text>Session ID: {{ activeSessionId() }}</ion-text>
-        <ion-badge *ngIf="sessionClosed()" color="success" style="margin-left:6px">Complete</ion-badge>
-        <div class="actions" style="margin-top:12px" *ngIf="!sessionClosed()">
-          <ion-button size="small" (click)="addCheckpoint()" [disabled]="loading()">Add Checkpoint</ion-button>
-          <ion-button size="small" fill="outline" (click)="refresh()" [disabled]="loading()">Refresh</ion-button>
+<ion-content class="page-animate">
+  <!-- Hero / Active Session Card -->
+  <ion-card class="session-hero elevate" [class.closed]="sessionClosed()" aria-labelledby="active-session-heading">
+    <ion-card-header class="hero-header">
+      <div class="hero-row">
+        <div class="hero-meta">
+          <h2 class="hero-title" id="active-session-heading">Sesi Aktif</h2>
+          <p class="hero-sub" *ngIf="activeSessionId()">ID: {{ activeSessionId() }}</p>
+          <p class="hero-sub" *ngIf="!activeSessionId() && !loading()">Tiada sesi. Mulakan di Tab 1.</p>
         </div>
-        <div *ngIf="sessionClosed()" style="margin-top:12px">
-          <ion-text color="medium">Checkpoint complete.</ion-text>
-          <div style="margin-top:8px">
-            <ion-button size="small" fill="outline" (click)="toggleHistory()">{{ showingHistory() ? 'Hide' : 'View' }} History</ion-button>
-          </div>
+        <div class="state-chip" [class.done]="sessionClosed()" *ngIf="activeSessionId()">
+          {{ sessionClosed() ? 'SELESAI' : 'AKTIF' }}
         </div>
       </div>
+    </ion-card-header>
+    <ion-card-content class="hero-content">
+      @if (loading()) { <div class="loading-row"><ion-spinner name="crescent"></ion-spinner><span>Memuat...</span></div> }
+      @if (error()) { <div class="error-row"><ion-text color="danger">{{ error() }}</ion-text></div> }
+      @if (activeSessionId() && !sessionClosed()) { <div class="actions hero-actions">
+        <ion-button class="checkpoint-btn" shape="round" (click)="addCheckpoint()" [disabled]="loading()" aria-label="Rekod checkpoint baharu">
+          <ion-icon slot="start" name="flag-outline"></ion-icon>
+            @if (!loading()) { <span>Rekod Checkpoint</span> } @else { <ion-spinner name="crescent"></ion-spinner> }
+        </ion-button>
+      </div> }
+      @if (activeSessionId() && sessionClosed()) { <div class="closed-msg">
+        <ion-text color="medium">Checkpoint selesai.</ion-text>
+        <ion-button size="small" fill="outline" class="history-toggle" (click)="toggleHistory()">{{ showingHistory() ? 'Sembunyi' : 'Lihat' }} Sejarah</ion-button>
+      </div> }
     </ion-card-content>
   </ion-card>
 
-  <ion-card *ngIf="checkpoints().length">
+  <!-- Checkpoints List -->
+  @if (checkpoints().length) { <ion-card class="checkpoints-card elevate">
     <ion-card-header>
-      <ion-card-title>Checkpoints ({{ checkpoints().length }})</ion-card-title>
+      <ion-card-title>Checkpoint <span class="count">({{ checkpoints().length }})</span></ion-card-title>
     </ion-card-header>
     <ion-card-content>
       <ion-list lines="inset">
@@ -40,54 +40,75 @@
           <ion-label class="ion-text-wrap">
             <h3>Checkpoint {{ i + 1 }} • {{ c.createdAt | date:'shortTime' }}</h3>
             <p>Lat: {{ c.location.lat | number:'1.5-5' }}, Lng: {{ c.location.lng | number:'1.5-5' }}</p>
-            <div class="photo-wrapper" *ngIf="c.photoDataUrl">
-              <img [src]="c.photoDataUrl" alt="checkpoint" style="max-width:120px;border-radius:4px;margin-top:4px;" />
-            </div>
+            @if (c.photoUrl || c.photoPath) { <div class="photo-wrapper">
+              <img [src]="c.photoUrl || ''" alt="Foto checkpoint" class="checkpoint-photo" />
+            </div> }
           </ion-label>
         </ion-item>
       </ion-list>
     </ion-card-content>
-  </ion-card>
+  </ion-card> }
 
-  <ion-card *ngIf="showingHistory()">
+  @if (showingHistory()) { <ion-card class="history-card">
     <ion-card-header>
-      <ion-card-title>Recent Sessions</ion-card-title>
+      <ion-card-title>Sesi Terkini</ion-card-title>
     </ion-card-header>
     <ion-card-content>
       <ion-list lines="none">
-        <ion-item *ngFor="let s of recentSessions()" (click)="selectHistorySession(s)">
-          <ion-label>
-            <h3>{{ s.punchIn | date:'shortTime' }} - {{ s.punchOut | date:'shortTime' }}</h3>
-            <p>{{ (s.checkpoints?.length || 0) }} checkpoints</p>
+        <ion-item *ngFor="let s of recentSessions()" (click)="s.checkpoints?.length ? selectHistorySession(s) : null"
+          [disabled]="!(s.checkpoints?.length)" [class.no-checkpoints]="!(s.checkpoints?.length)">
+          <ion-label class="ion-text-wrap">
+            <h3>
+              @if (s.punchIn) { <span>{{ s.punchIn?.toDate ? (s.punchIn.toDate() | date:'shortTime') : (s.punchIn | date:'shortTime') }}</span> } @else { <span>?</span> }
+              @if (s.punchOut) { <span> - {{ s.punchOut?.toDate ? (s.punchOut.toDate() | date:'shortTime') : (s.punchOut | date:'shortTime') }}</span> }
+              <ion-badge *ngIf="!s.punchOut" color="warning" style="margin-left:6px">Terbuka</ion-badge>
+            </h3>
+            <p>
+              @if (!(s.checkpoints?.length)) { Tiada checkpoint }
+              @else { {{ s.checkpoints.length }} checkpoint }
+            </p>
           </ion-label>
         </ion-item>
       </ion-list>
-      <div *ngIf="!recentSessions().length && !loading()"><ion-text color="medium">No history found.</ion-text></div>
+      @if (!recentSessions().length && !loading()) { <div><ion-text color="medium">Tiada sejarah.</ion-text></div> }
     </ion-card-content>
-  </ion-card>
+  </ion-card> }
 
-  <ion-card *ngIf="selectedHistorySession()">
+  @if (selectedHistorySession()) { <ion-card class="detail-card">
     <ion-card-header>
-      <ion-card-title>Session Detail</ion-card-title>
+      <ion-card-title>Butiran Sesi</ion-card-title>
     </ion-card-header>
     <ion-card-content>
       <ion-text>
-        <p><strong>In:</strong> {{ selectedHistorySession().punchIn | date:'short' }}</p>
-        <p><strong>Out:</strong> {{ selectedHistorySession().punchOut | date:'short' }}</p>
+        <p>
+          <strong>Masuk:</strong>
+          @if (selectedHistorySession().punchIn) { <ng-container>
+            {{ selectedHistorySession().punchIn?.toDate ? (selectedHistorySession().punchIn.toDate() | date:'short') :
+            (selectedHistorySession().punchIn | date:'short') }}
+          </ng-container> } @else { — }
+        </p>
+        <p>
+          <strong>Keluar:</strong>
+          @if (selectedHistorySession().punchOut) { <ng-container>
+            {{ selectedHistorySession().punchOut?.toDate ? (selectedHistorySession().punchOut.toDate() | date:'short') :
+            (selectedHistorySession().punchOut | date:'short') }}
+          </ng-container> } @else { — }
+        </p>
+        @if (sessionDurationMs(selectedHistorySession()) > 0) { <p><strong>Tempoh:</strong> {{
+          formatMs(sessionDurationMs(selectedHistorySession())) }}</p> }
       </ion-text>
-      <ion-list lines="inset" *ngIf="selectedHistorySession().checkpoints?.length">
+      @if (selectedHistorySession().checkpoints?.length) { <ion-list lines="inset">
         <ion-item *ngFor="let c of selectedHistorySession().checkpoints; let i = index">
           <ion-label class="ion-text-wrap">
             <h3>Checkpoint {{ i + 1 }} • {{ c.createdAt | date:'shortTime' }}</h3>
             <p>Lat: {{ c.location.lat | number:'1.4-4' }}, Lng: {{ c.location.lng | number:'1.4-4' }}</p>
-            <img *ngIf="c.photoDataUrl" [src]="c.photoDataUrl" alt="cp" style="max-width:100px;border-radius:4px;margin-top:4px;" />
+            @if (c.photoUrl) { <img [src]="c.photoUrl" alt="Foto checkpoint" class="checkpoint-photo" /> }
           </ion-label>
         </ion-item>
-      </ion-list>
-      <div *ngIf="!(selectedHistorySession().checkpoints?.length)"><ion-text color="medium">No checkpoints in this session.</ion-text></div>
+      </ion-list> } @else { <div><ion-text color="medium">Tiada checkpoint dalam sesi ini.</ion-text></div> }
       <div style="margin-top:12px">
-        <ion-button size="small" fill="outline" (click)="closeHistoryDetail()">Close</ion-button>
+        <ion-button size="small" fill="outline" (click)="closeHistoryDetail()">Tutup</ion-button>
       </div>
     </ion-card-content>
-  </ion-card>
+  </ion-card> }
 </ion-content>
