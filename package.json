@@ -1,6 +1,6 @@
 {
   "name": "punchApp",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Ionic Framework",
   "homepage": "https://ionicframework.com/",
   "scripts": {
@@ -8,12 +8,12 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-  "test": "ng test",
-  "lint": "ng lint",
-  "build:web": "ionic build",
-  "audit:lighthouse": "npm run build:web && lhci autorun",
-  "android:sync": "npx cap sync android",
-  "android:open": "npx cap open android"
+    "test": "ng test",
+    "lint": "ng lint",
+    "build:web": "ionic build",
+    "audit:lighthouse": "npm run build:web && lhci autorun",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android"
   },
   "private": true,
   "dependencies": {
@@ -39,7 +39,7 @@
     "@ionic/pwa-elements": "^3.3.0",
     "firebase": "^11.10.0",
     "ionicons": "^7.0.0",
-  "web-vitals": "^4.2.0",
+    "web-vitals": "^4.2.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
