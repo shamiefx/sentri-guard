@@ -28,6 +28,9 @@ export class Tab1Page implements OnInit, OnDestroy {
   offlineTasks = signal(0);
   todaySessions = signal<any[]>([]);
   companyTodayPunches = signal<any[]>([]);
+  fullHistory = signal<any[]>([]);
+  fullHistoryCursor = signal<string | null>(null);
+  fullHistoryLoading = signal(false);
   syncing = signal(false);
   syncResult = signal<string | null>(null);
 
@@ -74,11 +77,43 @@ export class Tab1Page implements OnInit, OnDestroy {
   await this.refreshTodaySessions();
   await this.refreshCompanyTodayPunches();
   this.refreshOfflineCount();
+  // Load initial full history (paged)
+  this.loadInitialFullHistory();
   // Poll company punches every 60s using RxJS inside Angular injection/zone context
   interval(60000).pipe(
     takeUntil(this.destroyed$),
     switchMap(() => from(this.punchService.getTodayCompanyPunches()))
   ).subscribe(list => this.companyTodayPunches.set(list));
+  }
+
+  async loadInitialFullHistory() {
+    if (this.fullHistoryLoading()) return;
+    this.fullHistoryLoading.set(true);
+    try {
+      const { items, nextCursor } = await this.punchService.getUserPunchesPage(25);
+      this.fullHistory.set(items);
+      this.fullHistoryCursor.set(nextCursor || null);
+    } finally {
+      this.fullHistoryLoading.set(false);
+    }
+  }
+
+  async loadMoreFullHistory() {
+    if (this.fullHistoryLoading() || !this.fullHistoryCursor()) return;
+    this.fullHistoryLoading.set(true);
+    try {
+      const { items, nextCursor } = await this.punchService.getUserPunchesPage(25, this.fullHistoryCursor()!);
+      this.fullHistory.set([...this.fullHistory(), ...items]);
+      this.fullHistoryCursor.set(nextCursor || null);
+    } finally {
+      this.fullHistoryLoading.set(false);
+    }
+  }
+
+  formatDateTime(dt?: string) {
+    if (!dt) return '?';
+    const d = new Date(dt);
+    return d.toLocaleDateString(undefined,{ month:'short', day:'2-digit' }) + ' ' + d.toLocaleTimeString(undefined,{ hour:'2-digit', minute:'2-digit' });
   }
 
   async punchIn() {
