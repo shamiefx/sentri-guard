@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonCardSubtitle, IonText, IonSpinner, IonList, IonItem, IonLabel, IonBadge } from '@ionic/angular/standalone';
 import { PunchService } from '../services/punch.service';
@@ -29,6 +29,14 @@ export class Tab1Page implements OnInit, OnDestroy {
   offlineTasks = signal(0);
   todaySessions = signal<any[]>([]);
   companyTodayPunches = signal<any[]>([]);
+  // Current authenticated user id (tracked for filtering)
+  userId = signal<string | null>(null);
+  // Filtered list: only this user's punches from companyTodayPunches
+  myCompanyTodayPunches = computed(() => {
+    const uid = this.userId();
+    if (!uid) return [];
+    return this.companyTodayPunches().filter(r => r.userId === uid);
+  });
   fullHistory = signal<any[]>([]);
   fullHistoryCursor = signal<string | null>(null);
   fullHistoryLoading = signal(false);
@@ -51,8 +59,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Zone-aware auth state observable (prevents outside injection context warnings)
     authState(this.auth).pipe(takeUntil(this.destroyed$)).subscribe(async user => {
       if (user) {
+        this.userId.set(user.uid);
         await this.restoreSessionFull();
       } else {
+        this.userId.set(null);
         this.activeRecordId.set(null);
         this.clearElapsedTimer();
         this.message.set(null);

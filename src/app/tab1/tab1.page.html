@@ -78,14 +78,14 @@
     </ion-card-content>
   </ion-card>
 
-  <ion-card *ngIf="companyTodayPunches().length">
+  <ion-card *ngIf="myCompanyTodayPunches().length">
     <ion-card-header>
-      <ion-card-title>Team Today</ion-card-title>
-      <ion-card-subtitle>Your company punch-ins</ion-card-subtitle>
+      <ion-card-title>My Punches (Today)</ion-card-title>
+      <ion-card-subtitle>Filtered from company list</ion-card-subtitle>
     </ion-card-header>
     <ion-card-content>
       <ion-list lines="none">
-        <ion-item *ngFor="let r of companyTodayPunches()">
+        <ion-item *ngFor="let r of myCompanyTodayPunches()">
           <ion-label class="ion-text-wrap">
             <h3>
               {{ r.staffId || r.email || (r.userId | slice:0:6) }}
