@@ -7,7 +7,7 @@ import { CompanyService } from '../services/company.service';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { Auth, authState } from '@angular/fire/auth';
 import { Router, NavigationEnd } from '@angular/router';
-import { filter, Subject, takeUntil } from 'rxjs';
+import { filter, Subject, takeUntil, interval, switchMap, from } from 'rxjs';
 
 @Component({
   selector: 'app-tab1',
@@ -74,8 +74,11 @@ export class Tab1Page implements OnInit, OnDestroy {
   await this.refreshTodaySessions();
   await this.refreshCompanyTodayPunches();
   this.refreshOfflineCount();
-  // Poll company punches every 60s (simpler than real-time for now)
-  setInterval(()=>{ this.refreshCompanyTodayPunches(); }, 60000);
+  // Poll company punches every 60s using RxJS inside Angular injection/zone context
+  interval(60000).pipe(
+    takeUntil(this.destroyed$),
+    switchMap(() => from(this.punchService.getTodayCompanyPunches()))
+  ).subscribe(list => this.companyTodayPunches.set(list));
   }
 
   async punchIn() {

@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, runInInjectionContext, EnvironmentInjector } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import { Firestore, addDoc, collection, doc, serverTimestamp, updateDoc, getDoc, query, where, limit, getDocs, orderBy, collectionData, startAfter } from '@angular/fire/firestore';
 import { Observable, map, firstValueFrom } from 'rxjs';
@@ -24,6 +24,7 @@ export interface PunchRecord {
 export class PunchService {
   private firestore = inject(Firestore);
   private auth = inject<Auth>(Auth as any);
+  private injector = inject(EnvironmentInjector);
 
   async captureLocation(): Promise<{ lat: number; lng: number; accuracy?: number }> {
     const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
@@ -194,15 +195,17 @@ export class PunchService {
   watchRecentPunches(): Observable<(PunchRecord & { id:string; durationMs:number })[]> {
     const user = this.auth.currentUser;
     if (!user) return new Observable(sub => { sub.next([]); sub.complete(); });
-    const colRef = collection(this.firestore, 'punches');
-    const qRef = query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(20));
-    return collectionData(qRef, { idField: 'id' }).pipe(
+    return runInInjectionContext(this.injector, () => {
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(20));
+      return collectionData(qRef, { idField: 'id' }).pipe(
       map((rows: any[]) => rows.map((r: any) => ({
         ...(r as PunchRecord),
         id: r.id,
         durationMs: (r.punchOut && r.punchIn) ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime()) : 0
       })))
-    );
+      );
+    });
   }
 
   /** Compute today's total worked milliseconds (completed punches only). */
@@ -264,22 +267,24 @@ export class PunchService {
     const end = new Date(start.getTime() + 86400000);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
-    const colRef = collection(this.firestore, 'punches');
-    const qRef = query(colRef,
-      where('userId','==', user.uid),
-      where('punchIn','>=', startISO),
-      where('punchIn','<', endISO),
-      orderBy('punchIn','asc')
-    );
-    return collectionData(qRef, { idField: 'id' }).pipe(
-      map((rows: any[]) => rows.map(r => ({
-        ...(r as PunchRecord),
-        id: (r as any).id,
-        durationMs: (r.punchIn && r.punchOut)
-          ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime())
-          : (r.punchIn ? (Date.now() - new Date(r.punchIn).getTime()) : 0)
-      })))
-    );
+    return runInInjectionContext(this.injector, () => {
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef,
+        where('userId','==', user.uid),
+        where('punchIn','>=', startISO),
+        where('punchIn','<', endISO),
+        orderBy('punchIn','asc')
+      );
+      return collectionData(qRef, { idField: 'id' }).pipe(
+        map((rows: any[]) => rows.map(r => ({
+          ...(r as PunchRecord),
+          id: (r as any).id,
+          durationMs: (r.punchIn && r.punchOut)
+            ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime())
+            : (r.punchIn ? (Date.now() - new Date(r.punchIn).getTime()) : 0)
+        })))
+      );
+    });
   }
 
   /** Fetch all punches today for the current user's company (sorted by punchIn asc). */
@@ -387,14 +392,16 @@ export class PunchService {
   watchAllUserPunches(limitCount = 100): Observable<(PunchRecord & { id:string; durationMs:number })[]> {
     const user = this.auth.currentUser;
     if (!user) return new Observable(sub => { sub.next([]); sub.complete(); });
-    const colRef = collection(this.firestore, 'punches');
-    const qRef = query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(limitCount));
-    return collectionData(qRef, { idField: 'id' }).pipe(
-      map((rows: any[]) => rows.map(r => ({
-        ...(r as PunchRecord),
-        id: (r as any).id,
-        durationMs: (r.punchIn && r.punchOut) ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime()) : 0
-      })))
-    );
+    return runInInjectionContext(this.injector, () => {
+      const colRef = collection(this.firestore, 'punches');
+      const qRef = query(colRef, where('userId','==', user.uid), orderBy('punchIn','desc'), limit(limitCount));
+      return collectionData(qRef, { idField: 'id' }).pipe(
+        map((rows: any[]) => rows.map(r => ({
+          ...(r as PunchRecord),
+          id: (r as any).id,
+          durationMs: (r.punchIn && r.punchOut) ? (new Date(r.punchOut).getTime() - new Date(r.punchIn).getTime()) : 0
+        })))
+      );
+    });
   }
 }
