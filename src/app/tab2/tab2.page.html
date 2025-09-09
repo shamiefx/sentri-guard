@@ -1,17 +1,45 @@
-<ion-header [translucent]="true">
+<ion-header>
   <ion-toolbar>
-    <ion-title>
-      Tab 2
-    </ion-title>
+    <ion-title>Checkpoints</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Tab 2</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Active Session</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div *ngIf="!activeSessionId() && !loading()">No active punch session. Start one in Tab 1.</div>
+      <div *ngIf="loading()"><ion-spinner name="crescent"></ion-spinner> Loading...</div>
+      <div *ngIf="error()"><ion-text color="danger">{{ error() }}</ion-text></div>
+      <div *ngIf="activeSessionId()">
+        <ion-text>Session ID: {{ activeSessionId() }}</ion-text>
+        <ion-badge *ngIf="sessionClosed()" color="medium" style="margin-left:6px">Closed</ion-badge>
+        <div class="actions" style="margin-top:12px" *ngIf="!sessionClosed()">
+          <ion-button size="small" (click)="addCheckpoint()" [disabled]="loading()">Add Checkpoint</ion-button>
+          <ion-button size="small" fill="outline" (click)="refresh()" [disabled]="loading()">Refresh</ion-button>
+        </div>
+      </div>
+    </ion-card-content>
+  </ion-card>
 
-  <app-explore-container name="Tab 2 page"></app-explore-container>
+  <ion-card *ngIf="checkpoints().length">
+    <ion-card-header>
+      <ion-card-title>Checkpoints ({{ checkpoints().length }})</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-list lines="inset">
+        <ion-item *ngFor="let c of checkpoints(); let i = index">
+          <ion-label class="ion-text-wrap">
+            <h3>#{{ i + 1 }} • {{ c.createdAt | date:'shortTime' }}</h3>
+            <p>Lat: {{ c.location.lat | number:'1.5-5' }}, Lng: {{ c.location.lng | number:'1.5-5' }}</p>
+            <div class="photo-wrapper" *ngIf="c.photoDataUrl">
+              <img [src]="c.photoDataUrl" alt="checkpoint" style="max-width:120px;border-radius:4px;margin-top:4px;" />
+            </div>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
 </ion-content>

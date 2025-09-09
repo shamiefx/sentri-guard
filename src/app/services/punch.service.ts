@@ -18,6 +18,15 @@ export interface PunchRecord {
   punchOutPhotoDataUrl?: string;
   createdAt?: any;
   updatedAt?: any;
+  // Embedded checkpoints (keep count modest to avoid 1MB doc size limit)
+  checkpoints?: PunchCheckpoint[];
+}
+
+export interface PunchCheckpoint {
+  id: string;
+  createdAt: string; // ISO timestamp
+  location: { lat: number; lng: number; accuracy?: number };
+  photoDataUrl: string; // downsized base64 image
 }
 
 @Injectable({ providedIn: 'root' })
@@ -128,6 +137,7 @@ export class PunchService {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       punchOut: null,
+      checkpoints: [],
       ...(finalCompanyCode ? { companyCode: finalCompanyCode } : {})
       , ...(staffId ? { staffId } : {})
       , ...(email ? { email } : {})
@@ -135,6 +145,45 @@ export class PunchService {
     const colRef = collection(this.firestore, 'punches');
     const docRef = await addDoc(colRef, punch as any);
     return docRef.id;
+  }
+
+  /** Adds a checkpoint to the currently open punch session (photo + location). */
+  async addCheckpoint(): Promise<PunchCheckpoint> {
+    const user = this.auth.currentUser; if (!user) throw new Error('Not authenticated');
+    const openId = await this.getOpenPunchId();
+    if (!openId) throw new Error('No active punch session');
+    // Fetch current punch doc
+    const ref = doc(this.firestore, 'punches', openId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error('Session not found');
+    const data: any = snap.data();
+    if (data.punchOut) throw new Error('Session already closed');
+    const checkpoints: PunchCheckpoint[] = Array.isArray(data.checkpoints) ? data.checkpoints : [];
+    if (checkpoints.length >= 80) {
+      throw new Error('Too many checkpoints (limit ~80 to avoid doc size issues)');
+    }
+    // Capture photo & location
+    const photoDataUrl = await this.capturePhotoFrontAndResize();
+    const location = await this.captureLocation();
+    const checkpoint: PunchCheckpoint = {
+      id: (globalThis.crypto?.randomUUID?.() || (Date.now().toString(36)+Math.random().toString(36).slice(2,8))),
+      createdAt: new Date().toISOString(),
+      location,
+      photoDataUrl,
+    };
+    const newArray = [...checkpoints, checkpoint];
+    await updateDoc(ref, { checkpoints: newArray, updatedAt: serverTimestamp() });
+    return checkpoint;
+  }
+
+  /** Returns the open punch (if any) including checkpoints. */
+  async getOpenPunchWithCheckpoints(): Promise<(PunchRecord & { id:string }) | null> {
+    const openId = await this.getOpenPunchId();
+    if (!openId) return null;
+    const ref = doc(this.firestore, 'punches', openId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    return { id: openId, ...(snap.data() as PunchRecord) };
   }
 
   /** Punch out: updates latest open record (no punchOut). */
