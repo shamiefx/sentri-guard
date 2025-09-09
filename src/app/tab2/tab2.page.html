@@ -32,7 +32,7 @@
       <ion-list lines="inset">
         <ion-item *ngFor="let c of checkpoints(); let i = index">
           <ion-label class="ion-text-wrap">
-            <h3>#{{ i + 1 }} • {{ c.createdAt | date:'shortTime' }}</h3>
+            <h3>Checkpoint {{ i + 1 }} • {{ c.createdAt | date:'shortTime' }}</h3>
             <p>Lat: {{ c.location.lat | number:'1.5-5' }}, Lng: {{ c.location.lng | number:'1.5-5' }}</p>
             <div class="photo-wrapper" *ngIf="c.photoDataUrl">
               <img [src]="c.photoDataUrl" alt="checkpoint" style="max-width:120px;border-radius:4px;margin-top:4px;" />
