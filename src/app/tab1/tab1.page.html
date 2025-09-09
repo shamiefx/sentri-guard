@@ -78,12 +78,15 @@
     </ion-card-content>
   </ion-card>
 
-  <ion-card *ngIf="myCompanyTodayPunches().length">
+  <ion-card>
     <ion-card-header>
       <ion-card-title>My Punches (Today)</ion-card-title>
       <ion-card-subtitle>Filtered from company list</ion-card-subtitle>
     </ion-card-header>
     <ion-card-content>
+      <div *ngIf="!myCompanyTodayPunches().length" class="ion-text-center" style="margin-bottom:8px;">
+        <ion-text color="medium">No punches yet today.</ion-text>
+      </div>
       <ion-list lines="none">
         <ion-item *ngFor="let r of myCompanyTodayPunches()">
           <ion-label class="ion-text-wrap">
@@ -117,24 +120,4 @@
     </ion-card-content>
   </ion-card>
 
-  <ion-card>
-    <ion-card-header>
-      <ion-card-title>Full History</ion-card-title>
-      <ion-card-subtitle>Most recent sessions</ion-card-subtitle>
-    </ion-card-header>
-    <ion-card-content>
-      <div *ngIf="fullHistory().length === 0 && !fullHistoryLoading()">No records yet.</div>
-      <ion-list lines="none">
-        <ion-item *ngFor="let r of fullHistory()">
-          <ion-label class="ion-text-wrap">
-            <h3>{{ formatDateTime(r.punchIn) }} → {{ r.punchOut ? formatDateTime(r.punchOut) : '—' }}</h3>
-            <p>Duration: {{ formatMs(r.durationMs) }}</p>
-          </ion-label>
-        </ion-item>
-      </ion-list>
-      <div class="ion-text-center" *ngIf="fullHistoryLoading()"><ion-spinner name="dots"></ion-spinner></div>
-      <ion-button expand="block" fill="outline" (click)="loadMoreFullHistory()" *ngIf="fullHistoryCursor() && !fullHistoryLoading()">Load More</ion-button>
-      <ion-text *ngIf="!fullHistoryCursor() && fullHistory().length">End of records</ion-text>
-    </ion-card-content>
-  </ion-card>
 </ion-content>
